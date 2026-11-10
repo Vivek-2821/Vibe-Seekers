@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block content %}
+<section style="padding: 80px 24px; max-width: 780px; margin: 0 auto;">
+  <h1 style="font-size: 42px; font-weight: 800; color: #e2e8f0; margin-bottom: 8px;">Privacy Policy</h1>
+  <p style="color: #64748b; font-size: 14px; margin-bottom: 40px;">Last updated: November 2024</p>
+
+  <div style="display: flex; flex-direction: column; gap: 24px; color: #94a3b8; line-height: 1.8; font-size: 15px;">
+    {% set sections = [
+      ('Information We Collect', 'We collect information you provide directly, such as your name, email address, phone number, and shipping address when you create an account or place an order. We also collect browsing data to improve your experience.'),
+      ('How We Use Your Information', 'Your information is used to process orders and payments, send order confirmations and tracking updates, provide customer support, send promotional emails (only with your consent), and improve our website and services.'),
+      ('Data Sharing', 'We do not sell or rent your personal information to third parties. We share data only with trusted service providers (courier partners, payment processors) who help us operate our business, and as required by law.'),
+      ('Cookies', 'We use cookies to remember your cart, preferences, and login session. You can disable cookies in your browser settings, but some features may not work correctly.'),
+      ('Data Security', 'We implement industry-standard security measures to protect your personal information. All payment transactions are encrypted. However, no method of transmission over the Internet is 100% secure.'),
+      ('Your Rights', 'You have the right to access, correct, or delete your personal data. To exercise these rights, contact us at hello@vibeseekers.com. We will respond within 7 business days.'),
+      ('Contact Us', 'If you have questions about this Privacy Policy, contact us at:<br/><strong style="color:#e2e8f0;">hello@vibeseekers.com</strong>')
+    ] %}
+    {% for heading, body in sections %}
+    <div style="background: rgba(17,17,24,0.6); border: 1px solid #2a2a3a; border-radius: 14px; padding: 28px;">
+      <h2 style="font-size: 18px; font-weight: 700; color: #e2e8f0; margin-bottom: 12px;">{{ loop.index }}. {{ heading }}</h2>
+      <p>{{ body | safe }}</p>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

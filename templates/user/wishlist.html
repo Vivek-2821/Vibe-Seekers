@@ -1,0 +1,14 @@
+{% extends "user/base_user.html" %}
+{% block user_content %}
+<h1 style="font-family:var(--font-display);font-size:2rem;font-weight:300;margin-bottom:32px">My Wishlist</h1>
+{% if items %}
+<div class="grid-3">
+  {% for item in items %}
+  {% set product = item.product %}
+  {% include 'partials/product_card.html' %}
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state"><div class="empty-state-icon">♡</div><h3>Your wishlist is empty</h3><p>Save items you love and they'll appear here for easy access later.</p><a href="{{ url_for('shop.all_products') }}" class="btn btn-primary mt-2" style="display:inline-flex">Browse Products</a></div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,62 @@
+<article class="product-card reveal">
+  <a href="{{ url_for('shop.product_detail', slug=product.slug) }}">
+    <div class="product-img-wrapper">
+      <!-- Badges -->
+      <div class="product-badges">
+        {% if product.is_new_arrival %}<span class="badge-label badge-new">New</span>{% endif %}
+        {% if product.discount_percent %}<span class="badge-label badge-sale">-{{ product.discount_percent|int }}%</span>{% endif %}
+        {% if product.is_trending %}<span class="badge-label badge-trending">Trending</span>{% endif %}
+        {% if product.stock == 0 %}<span class="badge-label badge-oos">Sold Out</span>{% endif %}
+      </div>
+
+      <!-- Primary image -->
+      {% if product.primary_image %}
+        <img src="{{ product.primary_image }}" alt="{{ product.name }}" loading="lazy">
+      {% else %}
+        <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#111">
+          <span style="font-size:3rem;opacity:.2">👕</span>
+        </div>
+      {% endif %}
+
+      <!-- Secondary hover image -->
+      {% if product.secondary_image %}
+        <img src="{{ product.secondary_image }}" alt="{{ product.name }} – alternate" loading="lazy" class="product-img-second">
+      {% endif %}
+
+      <!-- Quick Add -->
+      <div class="product-quick-add">Quick Add to Cart</div>
+    </div>
+  </a>
+
+  <!-- Wishlist -->
+  {% if current_user.is_authenticated and not current_user.is_admin %}
+  <form action="{{ url_for('user.toggle_wishlist', product_id=product.id) }}" method="POST" style="position:absolute;top:12px;right:12px;z-index:3">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="product-wishlist-btn" title="Add to Wishlist">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+    </button>
+  </form>
+  {% endif %}
+
+  <div class="product-info">
+    {% if product.category %}
+    <p class="product-category-tag">{{ product.category.name }}</p>
+    {% endif %}
+    <a href="{{ url_for('shop.product_detail', slug=product.slug) }}">
+      <h3 class="product-name">{{ product.name }}</h3>
+    </a>
+    <div class="product-price-row">
+      <span class="product-price">₹{{ '%.0f'|format(product.discounted_price) }}</span>
+      {% if product.discount_percent %}
+        <span class="product-original-price">₹{{ '%.0f'|format(product.price) }}</span>
+        <span class="product-discount">{{ product.discount_percent|int }}% off</span>
+      {% endif %}
+    </div>
+    {% if product.review_count > 0 %}
+    <div class="product-rating">
+      <span class="stars">{% for i in range(5) %}{% if i < product.avg_rating|int %}★{% else %}☆{% endif %}{% endfor %}</span>
+      <span class="star-count">({{ product.review_count }})</span>
+    </div>
+    {% endif %}
+  </div>
+</article>

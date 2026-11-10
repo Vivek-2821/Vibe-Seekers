@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block content %}
+<section style="padding: 80px 24px; max-width: 780px; margin: 0 auto;">
+  <h1 style="font-size: 42px; font-weight: 800; color: #e2e8f0; margin-bottom: 8px;">Terms & Conditions</h1>
+  <p style="color: #64748b; font-size: 14px; margin-bottom: 40px;">Last updated: November 2024</p>
+
+  <div style="display: flex; flex-direction: column; gap: 24px; color: #94a3b8; line-height: 1.8; font-size: 15px;">
+    {% set sections = [
+      ('Acceptance of Terms', 'By accessing and using the Vibe Seekers website and placing orders, you agree to be bound by these Terms and Conditions. If you do not agree, please do not use our website.'),
+      ('Account Registration', 'You must be 18 years or older to create an account. You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account.'),
+      ('Product Information', 'We strive to display accurate product images and descriptions. However, colours may vary slightly due to monitor settings. We reserve the right to modify product descriptions, prices, and availability without notice.'),
+      ('Ordering & Payment', 'All prices are in Indian Rupees (₹) and inclusive of applicable taxes. Orders are subject to availability. We reserve the right to cancel any order at our discretion, in which case a full refund will be issued.'),
+      ('Intellectual Property', 'All content on this website, including designs, logos, text, and images, is the property of Vibe Seekers and is protected by copyright laws. Reproduction without permission is prohibited.'),
+      ('Limitation of Liability', 'Vibe Seekers shall not be liable for any indirect, incidental, or consequential damages arising from the use of our website or products. Our maximum liability is limited to the value of the order placed.'),
+      ('Governing Law', 'These terms are governed by the laws of India. Any disputes shall be subject to the exclusive jurisdiction of courts in India.'),
+      ('Changes to Terms', 'We reserve the right to modify these terms at any time. Continued use of the website after changes constitutes acceptance of the new terms.')
+    ] %}
+    {% for heading, body in sections %}
+    <div style="background: rgba(17,17,24,0.6); border: 1px solid #2a2a3a; border-radius: 14px; padding: 28px;">
+      <h2 style="font-size: 18px; font-weight: 700; color: #e2e8f0; margin-bottom: 12px;">{{ loop.index }}. {{ heading }}</h2>
+      <p>{{ body | safe }}</p>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div style="margin-top:40px; padding:28px; background:rgba(124,58,237,0.08); border:1px solid rgba(124,58,237,0.2); border-radius:14px;">
+    <p style="color:#94a3b8;">Questions? <a href="{{ url_for('main.contact') }}" style="color:#a855f7;text-decoration:none;font-weight:600;">Contact us →</a></p>
+  </div>
+</section>
+{% endblock %}

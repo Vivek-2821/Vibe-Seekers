@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-hero">
+  <div class="container">
+    <h1>Your Cart</h1>
+    <p class="breadcrumbs"><a href="{{ url_for('main.index') }}">Home</a> / Cart</p>
+  </div>
+</div>
+
+<div class="container" style="padding-bottom:80px">
+  {% if cart_items %}
+  <div class="cart-grid">
+    <!-- Items -->
+    <div>
+      <div style="border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+        <h2 style="font-family:var(--font-display);font-size:1.2rem;font-weight:400">{{ cart_items|length }} item{{ 's' if cart_items|length != 1 }}</h2>
+        <a href="{{ url_for('shop.all_products') }}" style="font-size:.82rem;color:var(--text-muted)">Continue Shopping →</a>
+      </div>
+      {% for item in cart_items %}
+      <div class="cart-item">
+        <a href="{{ url_for('shop.product_detail', slug=item.product.slug) }}">
+          <img class="cart-item-img" src="{{ item.product.primary_image or '' }}" alt="{{ item.product.name }}" 
+               onerror="this.src=''" style="background:#111">
+        </a>
+        <div class="cart-item-details">
+          <a href="{{ url_for('shop.product_detail', slug=item.product.slug) }}">
+            <p class="cart-item-name">{{ item.product.name }}</p>
+          </a>
+          <p class="cart-item-meta">
+            {% if item.size %}Size: <strong>{{ item.size }}</strong>{% endif %}
+            {% if item.color %} &nbsp;·&nbsp; Color: <strong>{{ item.color }}</strong>{% endif %}
+          </p>
+          <p class="cart-item-price" style="margin-top:8px">₹{{ '%.0f'|format(item.product.discounted_price) }}</p>
+          
+          <div style="display:flex;align-items:center;gap:16px;margin-top:12px">
+            <form method="POST" action="{{ url_for('cart.update_cart') }}" style="display:flex;align-items:center;gap:8px">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="item_id" value="{{ item.id }}">
+              <div class="qty-control">
+                <button type="submit" name="quantity" value="{{ item.quantity - 1 }}" class="qty-btn">−</button>
+                <span class="qty-input">{{ item.quantity }}</span>
+                <button type="submit" name="quantity" value="{{ item.quantity + 1 }}" class="qty-btn">+</button>
+              </div>
+            </form>
+            <form method="POST" action="{{ url_for('cart.remove_from_cart', item_id=item.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" style="background:none;border:none;color:var(--text-muted);font-size:.8rem;cursor:pointer;text-decoration:underline">Remove</button>
+            </form>
+          </div>
+        </div>
+        <div style="text-align:right;font-weight:600;font-size:1rem;white-space:nowrap">
+          ₹{{ '%.0f'|format(item.product.discounted_price * item.quantity) }}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Summary -->
+    <div>
+      <div class="order-summary">
+        <h3>Order Summary</h3>
+        <div class="summary-row">
+          <span>Subtotal</span>
+          <span>₹{{ '%.0f'|format(totals.subtotal) }}</span>
+        </div>
+        {% if totals.discount > 0 %}
+        <div class="summary-row discount">
+          <span>Discount {% if totals.coupon_code %}({{ totals.coupon_code }}){% endif %}</span>
+          <span>−₹{{ '%.0f'|format(totals.discount) }}</span>
+        </div>
+        {% endif %}
+        <div class="summary-row">
+          <span>Shipping</span>
+          <span>{% if totals.shipping == 0 %}<span style="color:var(--success)">Free</span>{% else %}₹{{ totals.shipping }}{% endif %}</span>
+        </div>
+        {% if totals.shipping > 0 %}
+        <p style="font-size:.75rem;color:var(--text-dim);margin-top:-8px;margin-bottom:8px">
+          Add ₹{{ '%.0f'|format(999 - totals.subtotal) }} more for free shipping
+        </p>
+        {% endif %}
+        <div class="summary-row total">
+          <span>Total</span>
+          <span>₹{{ '%.0f'|format(totals.total) }}</span>
+        </div>
+
+        <!-- Coupon Section -->
+        {% if totals.coupon_code %}
+        <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(34,197,94,0.12);border:1px solid #22c55e;border-radius:var(--radius);padding:10px 14px;margin:16px 0;">
+          <div>
+            <span style="color:#22c55e;font-weight:700;font-size:0.85rem;">🎉 {{ totals.coupon_code }} Applied</span>
+            <div style="font-size:0.75rem;color:#86efac;">10% discount applied to your order</div>
+          </div>
+          <form method="POST" action="{{ url_for('cart.remove_coupon') }}" style="margin:0;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" style="background:none;border:none;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;text-decoration:underline;">Remove</button>
+          </form>
+        </div>
+        {% else %}
+        <form method="POST" action="{{ url_for('cart.apply_coupon') }}" style="display:flex;gap:8px;margin:16px 0">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="text" name="coupon_code" class="form-control" placeholder="Try coupon code VIBE10" style="flex:1;text-transform:uppercase;">
+          <button type="submit" class="btn btn-outline btn-sm">Apply</button>
+        </form>
+        {% endif %}
+
+        <!-- Shiprocket Delivery & Shipping Charge Checker -->
+        <div style="margin:20px 0;padding:16px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:var(--radius)">
+          <p style="font-size:.75rem;letter-spacing:.15em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px">
+            <span>🚚</span> Check Delivery & Shipping Charge
+          </p>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="cart-pincode" class="form-control" placeholder="Enter 6-digit PIN code" maxlength="6" inputmode="numeric" style="flex:1;font-size:.85rem">
+            <button type="button" id="btn-cart-check-pin" class="btn btn-outline btn-sm">Check</button>
+          </div>
+          <div id="cart-pin-result" style="display:none;margin-top:12px;padding:12px;border-radius:var(--radius);font-size:.82rem;line-height:1.5"></div>
+        </div>
+
+        <a href="{{ url_for('cart.checkout') }}" class="btn btn-primary btn-full btn-lg">Proceed to Checkout</a>
+        <p style="font-size:.75rem;color:var(--text-dim);text-align:center;margin-top:12px">Secure & encrypted checkout</p>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-state-icon">🛒</div>
+    <h3>Your cart is empty</h3>
+    <p>Looks like you haven't added anything yet. Browse our collection and find something you love.</p>
+    <a href="{{ url_for('shop.all_products') }}" class="btn btn-primary mt-3" style="display:inline-flex">Start Shopping</a>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+(function() {
+  const pinInput = document.getElementById('cart-pincode');
+  const checkBtn = document.getElementById('btn-cart-check-pin');
+  const resBox = document.getElementById('cart-pin-result');
+
+  if (!pinInput || !checkBtn || !resBox) return;
+
+  async function checkCartPin(pin) {
+    if (!/^[0-9]{6}$/.test(pin)) {
+      resBox.style.display = 'block';
+      resBox.style.background = 'rgba(220, 30, 30, 0.1)';
+      resBox.style.border = '1px solid var(--error)';
+      resBox.style.color = 'var(--error)';
+      resBox.innerHTML = '⚠ Please enter a valid 6-digit Indian PIN code.';
+      return;
+    }
+
+    checkBtn.disabled = true;
+    checkBtn.textContent = '...';
+    resBox.style.display = 'block';
+    resBox.style.background = 'rgba(255,255,255,0.04)';
+    resBox.style.border = '1px solid var(--border)';
+    resBox.style.color = 'var(--text-muted)';
+    resBox.innerHTML = '<span>⏳</span> Checking Shiprocket courier serviceability...';
+
+    try {
+      const res = await fetch(`/api/shipping/check-serviceability?pincode=${pin}`);
+      const json = await res.json();
+      const data = json.data || {};
+
+      if (data.serviceable) {
+        resBox.style.background = 'rgba(74, 222, 128, 0.08)';
+        resBox.style.border = '1px solid #4ade80';
+        resBox.style.color = '#4ade80';
+
+        const subtotal = {{ totals.subtotal|default(0) }};
+        const shippingNotice = subtotal >= 999 
+          ? '<span style="color:#4ade80;font-weight:700">FREE SHIPPING</span> (Order above ₹999)' 
+          : `Standard Delivery Charge: ₹${data.rate || 79}`;
+
+        resBox.innerHTML = `
+          <div style="font-weight:600;display:flex;align-items:center;gap:6px">
+            <span>✓</span> <span>Serviceable at PIN ${pin}</span>
+          </div>
+          <div style="color:var(--text);margin-top:6px;font-size:.82rem">
+            • Estimated delivery: <strong>${data.estimated_days || '3-5 business days'}</strong><br>
+            • Partner: <strong>${data.courier_name || 'Express Courier'}</strong><br>
+            • Shipping: <strong>${shippingNotice}</strong>
+          </div>
+        `;
+      } else {
+        resBox.style.background = 'rgba(220, 30, 30, 0.1)';
+        resBox.style.border = '1px solid var(--error)';
+        resBox.style.color = 'var(--error)';
+        resBox.innerHTML = `
+          <div style="font-weight:600;display:flex;align-items:center;gap:6px">
+            <span>✕</span> <span>Not Serviceable</span>
+          </div>
+          <div style="margin-top:4px;font-size:.8rem;color:#fca5a5">
+            ${data.message || 'Sorry, our courier partners cannot deliver to this PIN code.'}
+          </div>
+        `;
+      }
+    } catch (e) {
+      resBox.style.display = 'none';
+    } finally {
+      checkBtn.disabled = false;
+      checkBtn.textContent = 'Check';
+    }
+  }
+
+  checkBtn.addEventListener('click', () => checkCartPin(pinInput.value.trim()));
+  pinInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      checkCartPin(pinInput.value.trim());
+    }
+  });
+})();
+</script>
+{% endblock %}

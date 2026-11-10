@@ -1,0 +1,600 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container" style="padding:48px 24px 80px">
+  <div class="product-detail-grid">
+    <!-- Image Gallery -->
+    <div>
+      <div class="img-gallery-main" id="main-image-wrapper" style="overflow:hidden;position:relative;cursor:crosshair;border-radius:var(--radius-lg)">
+        {% if images %}
+          <img src="{{ images[0].image_url }}" alt="{{ product.name }}" id="main-image" style="transition:transform .15s ease-out;width:100%;height:100%;object-fit:cover;">
+        {% else %}
+          <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#111">
+            <span style="font-size:5rem;opacity:.15">👕</span>
+          </div>
+        {% endif %}
+      </div>
+      {% if images|length > 1 %}
+      <div class="gallery-dots-mobile">
+        {% for img in images %}
+        <span class="gallery-dot {% if loop.first %}active{% endif %}" onclick="selectThumbIndex({{ loop.index0 }})"></span>
+        {% endfor %}
+      </div>
+      <div class="img-gallery-thumbs">
+        {% for img in images %}
+        <img src="{{ img.image_url }}" alt="{{ product.name }}" class="img-thumb {% if loop.first %}active{% endif %}"
+             onclick="setMainImage(this, '{{ img.image_url }}')">
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Product Info -->
+    <div class="product-detail-info">
+      {% if product.category %}
+      <p class="product-category-tag">{{ product.category.name }}</p>
+      {% endif %}
+      <h1>{{ product.name }}</h1>
+
+      <!-- Rating -->
+      {% if product.review_count > 0 %}
+      <div class="product-rating" style="margin-bottom:16px">
+        <span class="stars">{% for i in range(5) %}{% if i < product.avg_rating|int %}★{% else %}☆{% endif %}{% endfor %}</span>
+        <span class="star-count">{{ product.avg_rating }} ({{ product.review_count }} reviews)</span>
+      </div>
+      {% endif %}
+
+      <!-- Price -->
+      <div style="margin-bottom:4px">
+        <span class="product-price-large">₹{{ '%.0f'|format(product.discounted_price) }}</span>
+        {% if product.discount_percent %}
+          <span class="product-original-price" style="font-size:1.1rem;margin-left:10px">₹{{ '%.0f'|format(product.price) }}</span>
+          <span class="badge-label badge-sale" style="margin-left:8px">{{ product.discount_percent|int }}% off</span>
+        {% endif %}
+      </div>
+      <p class="tax-note">Inclusive of all taxes. Free shipping on orders over ₹999.</p>
+
+      <div style="margin:24px 0;height:1px;background:var(--border)"></div>
+
+      <!-- Stock Status & Urgency -->
+      {% if product.stock > 5 %}
+        <p class="stock-status in-stock" style="margin-bottom:24px;display:flex;align-items:center;gap:8px">
+          <span class="stock-dot"></span>
+          <span style="color:#4ade80;font-weight:600">✓ In Stock (Dispatches within 24 hours)</span>
+        </p>
+      {% elif product.stock > 0 %}
+        <p class="stock-status low-stock" style="margin-bottom:24px;display:flex;align-items:center;gap:8px">
+          <span class="stock-dot" style="background:#f59e0b;box-shadow:0 0 10px #f59e0b"></span>
+          <span style="color:#fbbf24;font-weight:700">⚡ Only {{ product.stock }} left in stock – order soon!</span>
+        </p>
+      {% else %}
+        <p class="stock-status out-of-stock" style="margin-bottom:24px;display:flex;align-items:center;gap:8px">
+          <span class="stock-dot" style="background:#ef4444"></span>
+          <span style="color:#f87171;font-weight:600">✕ Currently Out of Stock</span>
+        </p>
+      {% endif %}
+
+      <!-- Add to cart form -->
+      <form action="{{ url_for('cart.add_to_cart') }}" method="POST" id="add-to-cart-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="product_id" value="{{ product.id }}">
+        <input type="hidden" name="size" id="selected-size" value="">
+        <input type="hidden" name="color" id="selected-color" value="">
+
+        <!-- Sizes -->
+        {% if sizes %}
+        <div class="form-group">
+          <label class="form-label">Size</label>
+          <div class="size-selector" id="size-selector">
+            {% for s in sizes %}
+            <button type="button" class="size-btn {% if s.stock == 0 %}oos{% endif %}"
+                    onclick="selectSize(this, '{{ s.size }}')"
+                    {% if s.stock == 0 %}disabled{% endif %}>{{ s.size }}</button>
+            {% endfor %}
+          </div>
+          <a href="#" id="size-guide-link" onclick="openSizeGuide();return false;" style="font-size:.78rem;color:var(--text-muted);margin-top:8px;display:inline-block;text-decoration:underline dotted">📏 Size Guide</a>
+        </div>
+        {% endif %}
+
+        <!-- Colors -->
+        {% if colors %}
+        <div class="form-group">
+          <label class="form-label">Color</label>
+          <div class="color-selector">
+            {% for c in colors %}
+            <button type="button" class="color-dot" style="background:{{ c.color_hex }}"
+                    title="{{ c.color_name }}" onclick="selectColor(this, '{{ c.color_name }}')"></button>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Quantity -->
+        <div class="form-group">
+          <label class="form-label">Quantity</label>
+          <div class="qty-control">
+            <button type="button" class="qty-btn" onclick="changeQty(-1)">−</button>
+            <input type="number" name="quantity" class="qty-input" value="1" min="1" max="{{ product.stock }}" id="qty-input">
+            <button type="button" class="qty-btn" onclick="changeQty(1)">+</button>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:24px">
+          {% if product.stock > 0 %}
+            <button type="submit" class="btn btn-primary" style="flex:1;min-width:160px">Add to Cart</button>
+            <button type="submit" formaction="{{ url_for('cart.checkout') }}" class="btn btn-outline" style="flex:1;min-width:160px" onclick="this.form.action='{{ url_for('cart.add_to_cart') }}'">Buy Now</button>
+          {% else %}
+            <div style="width:100%;margin-top:10px;">
+              <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:10px;padding:16px;text-align:center;">
+                <div style="font-weight:600;color:#f87171;margin-bottom:6px;">⚠️ Currently Out of Stock</div>
+                <div style="font-size:13px;color:#94a3b8;margin-bottom:14px;">Leave your email and we'll notify you as soon as this piece is restocked:</div>
+                <form action="{{ url_for('main.notify_me') }}" method="POST" class="ajax-newsletter-form" data-no-transition data-ajax style="display:flex;gap:8px;">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="email" name="email" class="form-control" placeholder="your@email.com" required style="flex:1;padding:10px 14px;border-radius:8px;font-size:14px;">
+                  <button type="submit" class="btn btn-primary" style="padding:10px 20px;white-space:nowrap;font-size:14px;border-radius:8px;">Notify Me</button>
+                </form>
+                <div class="newsletter-feedback" style="margin-top:12px;font-size:13px;display:none;font-weight:500;"></div>
+              </div>
+            </div>
+          {% endif %}
+
+          <!-- Wishlist -->
+          {% if current_user.is_authenticated and not current_user.is_admin %}
+          <form action="{{ url_for('user.toggle_wishlist', product_id=product.id) }}" method="POST" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-dark {% if in_wishlist %}btn-danger{% endif %}" title="{% if in_wishlist %}Remove from Wishlist{% else %}Add to Wishlist{% endif %}">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="{% if in_wishlist %}currentColor{% else %}none{% endif %}" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            </button>
+          </form>
+          {% endif %}
+        </div>
+      </form>
+
+      <!-- Trust Badges -->
+      <div class="product-trust-badges">
+        <div class="trust-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="15" height="13"/><path d="M16 8h4l3 4v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+          <span>Free Shipping<br><small>Over ₹999</small></span>
+        </div>
+        <div class="trust-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+          <span>Easy Returns<br><small>7-Day Policy</small></span>
+        </div>
+        <div class="trust-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span>Secure Payment<br><small>UPI & COD</small></span>
+        </div>
+      </div>
+
+      <!-- Check Delivery Serviceability (Shiprocket) -->
+      <div style="margin-top:24px;padding:16px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg)">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="font-size:1.1rem">🚚</span>
+          <span style="font-size:.78rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text)">Check Delivery & Shipping</span>
+        </div>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="pdp-pincode" class="form-control" placeholder="Enter 6-digit PIN code" maxlength="6" inputmode="numeric" style="flex:1;font-size:.85rem">
+          <button type="button" id="btn-pdp-check-pin" class="btn btn-outline btn-sm" style="white-space:nowrap;padding:0 14px">Check</button>
+        </div>
+        <div id="pdp-pin-result" style="display:none;margin-top:12px;padding:10px 14px;border-radius:var(--radius);font-size:.82rem;line-height:1.5"></div>
+      </div>
+
+      <!-- Description -->
+      {% if product.description %}
+      <div style="margin-top:32px;padding-top:24px;border-top:1px solid var(--border)">
+        <h3 style="font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:12px">Description</h3>
+        <p style="color:var(--text-muted);line-height:1.8;font-size:.92rem">{{ product.description }}</p>
+      </div>
+      {% endif %}
+
+      <!-- SKU -->
+      {% if product.sku %}
+      <p style="font-size:.75rem;color:var(--text-dim);margin-top:16px">SKU: {{ product.sku }}</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Reviews -->
+  <div style="margin-top:80px;padding-top:48px;border-top:1px solid var(--border)">
+    <div class="flex-between mb-3">
+      <h2 class="section-title" style="font-size:1.8rem">Customer Reviews</h2>
+      {% if current_user.is_authenticated and not current_user.is_admin %}
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('review-form').classList.toggle('hidden')">Write a Review</button>
+      {% else %}
+      <a href="{{ url_for('auth.login') }}" class="btn btn-outline btn-sm">Login to Review</a>
+      {% endif %}
+    </div>
+
+    <!-- Review Form -->
+    {% if current_user.is_authenticated and not current_user.is_admin %}
+    <div id="review-form" class="hidden" style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px;margin-bottom:32px">
+      <h3 style="font-family:var(--font-display);font-size:1.2rem;margin-bottom:20px">Share Your Experience</h3>
+      <form action="{{ url_for('shop.submit_review', product_id=product.id) }}" method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+          <label class="form-label">Rating</label>
+          <div style="display:flex;gap:8px;font-size:2rem" id="star-rating">
+            {% for i in range(1,6) %}
+            <button type="button" class="star-pick" data-val="{{ i }}" onclick="setRating({{ i }})" style="background:none;border:none;cursor:pointer;color:var(--text-dim);transition:.2s">★</button>
+            {% endfor %}
+          </div>
+          <input type="hidden" name="rating" id="rating-val" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Review Title</label>
+          <input type="text" name="title" class="form-control" placeholder="Summarise your review">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Your Review</label>
+          <textarea name="body" class="form-control" placeholder="Tell us what you think about this product…" rows="4"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Add a Photo (Optional)</label>
+          <input type="file" name="review_image" class="form-control" accept="image/*">
+          <div style="font-size:0.75rem;color:var(--text-dim);margin-top:4px;">Upload a fit check or product photo (JPG, PNG, WebP)</div>
+        </div>
+        <button type="submit" class="btn btn-primary">Submit Review</button>
+      </form>
+    </div>
+    {% endif %}
+
+    {% if reviews %}
+      {% for review in reviews %}
+      <div class="review-card">
+        <div class="review-header">
+          <div>
+            <span class="reviewer-name">{{ review.user.name }}</span>
+            {% if review.is_verified_buyer %}<span class="verified-badge">✓ Verified Buyer</span>{% endif %}
+            <div class="stars" style="margin-top:4px;font-size:1rem">{% for i in range(5) %}{% if i < review.rating %}★{% else %}☆{% endif %}{% endfor %}</div>
+          </div>
+          <span class="review-date">{{ review.created_at.strftime('%b %d, %Y') }}</span>
+        </div>
+        {% if review.title %}<p class="review-title">{{ review.title }}</p>{% endif %}
+        {% if review.body %}<p class="review-body">{{ review.body }}</p>{% endif %}
+        {% if review.image_url %}
+        <div style="margin-top:14px;">
+          <a href="{{ review.image_url }}" target="_blank" rel="noopener noreferrer">
+            <img src="{{ review.image_url }}" alt="Review photo by {{ review.user.name }}" style="max-width:130px;max-height:130px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:zoom-in;">
+          </a>
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state" style="padding:40px 0">
+        <div class="empty-state-icon">💬</div>
+        <h3>No reviews yet</h3>
+        <p>Be the first to share your thoughts on this product.</p>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Related Products -->
+  {% if related %}
+  <div style="margin-top:64px">
+    <h2 class="section-title mb-3" style="font-size:1.8rem">You Might Also Like</h2>
+    <div class="grid-4">
+      {% for product in related %}
+      {% include 'partials/product_card.html' %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- ═══════════════ STICKY MOBILE ADD TO CART BAR ═══════════════ -->
+{% if product.stock > 0 %}
+<div id="sticky-pdp-bar" class="sticky-pdp-bar">
+  <div class="sticky-pdp-inner">
+    <div class="sticky-pdp-info">
+      {% if images %}
+      <img src="{{ images[0].image_url }}" alt="{{ product.name }}" class="sticky-pdp-thumb">
+      {% endif %}
+      <div class="sticky-pdp-text">
+        <div class="sticky-pdp-title">{{ product.name }}</div>
+        <div class="sticky-pdp-price">₹{{ '%.0f'|format(product.discounted_price) }}</div>
+      </div>
+    </div>
+    <button type="button" class="btn btn-primary sticky-pdp-btn" onclick="triggerStickyAddToCart()">
+      Add to Cart
+    </button>
+  </div>
+</div>
+{% endif %}
+
+<!-- ═══════════════ SIZE GUIDE MODAL / BOTTOM SHEET ═══════════════ -->
+<div id="size-guide-modal" class="size-guide-modal" style="display:none;">
+  <div class="size-guide-sheet">
+    <div class="sheet-drag-handle"></div>
+    <button onclick="closeSizeGuide()" class="sheet-close-btn" aria-label="Close">✕</button>
+    <div style="font-size:.68rem;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:8px;font-family:var(--font-heading)">Size Guide</div>
+    <h3 style="margin-bottom:4px;font-size:1.5rem;font-weight:400">Find Your Fit</h3>
+    <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:20px">Measure yourself and use the chart below for the best fit.</p>
+    <ul style="list-style:none;font-size:.84rem;color:var(--text-muted);margin-bottom:20px;display:flex;flex-direction:column;gap:8px;padding:0">
+      <li>📏 <strong>Chest:</strong> Measure around the fullest part of your chest</li>
+      <li>📏 <strong>Waist:</strong> Measure around your natural waistline</li>
+      <li>📏 <strong>Hips:</strong> Measure around the fullest part of your hips</li>
+    </ul>
+    <div style="font-size:.72rem;letter-spacing:.15em;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px;font-weight:600">Size Chart (cm)</div>
+    <div class="table-responsive" style="overflow-x:auto;margin-bottom:20px;-webkit-overflow-scrolling:touch">
+      <table style="width:100%;border-collapse:collapse;font-size:.84rem">
+        <thead>
+          <tr style="border-bottom:1.5px solid var(--border)">
+            <th style="padding:10px 12px;text-align:left;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim)">Size</th>
+            <th style="padding:10px 12px;text-align:center;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim)">Chest</th>
+            <th style="padding:10px 12px;text-align:center;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim)">Waist</th>
+            <th style="padding:10px 12px;text-align:center;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim)">Hip</th>
+            <th style="padding:10px 12px;text-align:center;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim)">Length</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid var(--border)"><td style="padding:12px;font-weight:700;color:var(--accent)">XS</td><td style="padding:12px;text-align:center;color:var(--text-muted)">81–86</td><td style="padding:12px;text-align:center;color:var(--text-muted)">66–71</td><td style="padding:12px;text-align:center;color:var(--text-muted)">86–91</td><td style="padding:12px;text-align:center;color:var(--text-muted)">65</td></tr>
+          <tr style="border-bottom:1px solid var(--border);background:rgba(255,255,255,.02)"><td style="padding:12px;font-weight:700;color:var(--accent)">S</td><td style="padding:12px;text-align:center;color:var(--text-muted)">86–91</td><td style="padding:12px;text-align:center;color:var(--text-muted)">71–76</td><td style="padding:12px;text-align:center;color:var(--text-muted)">91–96</td><td style="padding:12px;text-align:center;color:var(--text-muted)">67</td></tr>
+          <tr style="border-bottom:1px solid var(--border)"><td style="padding:12px;font-weight:700;color:var(--accent)">M</td><td style="padding:12px;text-align:center;color:var(--text-muted)">91–96</td><td style="padding:12px;text-align:center;color:var(--text-muted)">76–81</td><td style="padding:12px;text-align:center;color:var(--text-muted)">96–101</td><td style="padding:12px;text-align:center;color:var(--text-muted)">69</td></tr>
+          <tr style="border-bottom:1px solid var(--border);background:rgba(255,255,255,.02)"><td style="padding:12px;font-weight:700;color:var(--accent)">L</td><td style="padding:12px;text-align:center;color:var(--text-muted)">96–101</td><td style="padding:12px;text-align:center;color:var(--text-muted)">81–86</td><td style="padding:12px;text-align:center;color:var(--text-muted)">101–106</td><td style="padding:12px;text-align:center;color:var(--text-muted)">71</td></tr>
+          <tr style="border-bottom:1px solid var(--border)"><td style="padding:12px;font-weight:700;color:var(--accent)">XL</td><td style="padding:12px;text-align:center;color:var(--text-muted)">101–106</td><td style="padding:12px;text-align:center;color:var(--text-muted)">86–91</td><td style="padding:12px;text-align:center;color:var(--text-muted)">106–111</td><td style="padding:12px;text-align:center;color:var(--text-muted)">73</td></tr>
+          <tr style="background:rgba(255,255,255,.02)"><td style="padding:12px;font-weight:700;color:var(--accent)">XXL</td><td style="padding:12px;text-align:center;color:var(--text-muted)">106–111</td><td style="padding:12px;text-align:center;color:var(--text-muted)">91–96</td><td style="padding:12px;text-align:center;color:var(--text-muted)">111–116</td><td style="padding:12px;text-align:center;color:var(--text-muted)">75</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:.76rem;color:var(--text-dim);text-align:center">💡 Between sizes? Size up for relaxed fit, size down for fitted look.</p>
+  </div>
+</div>
+
+<script>
+// Interactive Image Zoom
+const mainWrapper = document.getElementById('main-image-wrapper');
+const mainImg = document.getElementById('main-image');
+if (mainWrapper && mainImg) {
+  mainWrapper.addEventListener('mousemove', function(e) {
+    const rect = mainWrapper.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    mainImg.style.transformOrigin = `${x}% ${y}%`;
+    mainImg.style.transform = 'scale(1.85)';
+  });
+  mainWrapper.addEventListener('mouseleave', function() {
+    mainImg.style.transform = 'scale(1)';
+    mainImg.style.transformOrigin = 'center center';
+  });
+}
+
+function setMainImage(thumb, src) {
+  const mainImg = document.getElementById('main-image');
+  if (mainImg) mainImg.src = src;
+  const thumbs = Array.from(document.querySelectorAll('.img-thumb'));
+  thumbs.forEach(t => t.classList.remove('active'));
+  thumb.classList.add('active');
+  const idx = thumbs.indexOf(thumb);
+  const dots = document.querySelectorAll('.gallery-dot');
+  dots.forEach((dot, i) => dot.classList.toggle('active', i === idx));
+}
+
+function selectThumbIndex(idx) {
+  const thumbs = document.querySelectorAll('.img-thumb');
+  if (thumbs[idx]) thumbs[idx].click();
+}
+
+// Touch swipe support for product gallery on mobile
+(function() {
+  const wrapper = document.getElementById('main-image-wrapper');
+  if (!wrapper) return;
+  let startX = 0, startY = 0;
+  wrapper.addEventListener('touchstart', (e) => {
+    if (!e.touches || !e.touches[0]) return;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  }, { passive: true });
+
+  wrapper.addEventListener('touchend', (e) => {
+    if (!e.changedTouches || !e.changedTouches[0]) return;
+    const deltaX = e.changedTouches[0].clientX - startX;
+    const deltaY = e.changedTouches[0].clientY - startY;
+    if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY) * 1.4) {
+      const thumbs = Array.from(document.querySelectorAll('.img-thumb'));
+      if (thumbs.length <= 1) return;
+      const currentIdx = thumbs.findIndex(t => t.classList.contains('active'));
+      const nextIdx = deltaX < 0 
+        ? (currentIdx + 1) % thumbs.length 
+        : (currentIdx - 1 + thumbs.length) % thumbs.length;
+      thumbs[nextIdx]?.click();
+    }
+  }, { passive: true });
+})();
+
+// Mobile Sticky Add to Cart Bar
+function triggerStickyAddToCart() {
+  const form = document.getElementById('add-to-cart-form');
+  const sizeInput = document.getElementById('selected-size');
+  const sizeSelector = document.getElementById('size-selector');
+  if (sizeSelector && (!sizeInput || !sizeInput.value)) {
+    sizeSelector.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    sizeSelector.style.outline = '2px solid var(--accent)';
+    sizeSelector.style.borderRadius = '8px';
+    setTimeout(() => { sizeSelector.style.outline = ''; }, 2000);
+    let hint = document.getElementById('size-hint');
+    if (!hint) {
+      hint = document.createElement('p');
+      hint.id = 'size-hint';
+      hint.style.cssText = 'color:var(--accent);font-size:.78rem;margin-top:6px;font-weight:600';
+      hint.textContent = '⚠ Please select a size first';
+      sizeSelector.parentElement.appendChild(hint);
+    }
+    hint.style.display = 'block';
+    setTimeout(() => { if (hint) hint.style.display = 'none'; }, 3000);
+    return;
+  }
+  if (form) form.requestSubmit();
+}
+
+(function() {
+  const stickyBar = document.getElementById('sticky-pdp-bar');
+  const mainForm = document.getElementById('add-to-cart-form');
+  if (!stickyBar || !mainForm) return;
+
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        // When main form is not visible and scrolled past it, show sticky bar
+        if (!entry.isIntersecting && entry.boundingClientRect.top < 0) {
+          stickyBar.classList.add('visible');
+        } else {
+          stickyBar.classList.remove('visible');
+        }
+      });
+    }, { threshold: 0.1 });
+    observer.observe(mainForm);
+  } else {
+    window.addEventListener('scroll', () => {
+      const rect = mainForm.getBoundingClientRect();
+      if (rect.bottom < 0) {
+        stickyBar.classList.add('visible');
+      } else {
+        stickyBar.classList.remove('visible');
+      }
+    }, { passive: true });
+  }
+})();
+function selectSize(btn, size) {
+  document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('selected-size').value = size;
+  const hint = document.getElementById('size-hint');
+  if (hint) hint.style.display = 'none';
+}
+function selectColor(btn, color) {
+  document.querySelectorAll('.color-dot').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('selected-color').value = color;
+}
+function changeQty(delta) {
+  const input = document.getElementById('qty-input');
+  const max = parseInt(input.max) || 99;
+  input.value = Math.min(max, Math.max(1, parseInt(input.value) + delta));
+}
+function setRating(val) {
+  document.getElementById('rating-val').value = val;
+  document.querySelectorAll('.star-pick').forEach((s, i) => {
+    s.style.color = i < val ? 'var(--accent)' : 'var(--text-dim)';
+  });
+}
+
+// Size guide modal
+function openSizeGuide() {
+  const modal = document.getElementById('size-guide-modal');
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+function closeSizeGuide() {
+  const modal = document.getElementById('size-guide-modal');
+  modal.style.display = 'none';
+  document.body.style.overflow = '';
+}
+document.getElementById('size-guide-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeSizeGuide();
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeSizeGuide();
+});
+
+// Require size selection before adding to cart
+const addToCartForm = document.getElementById('add-to-cart-form');
+if (addToCartForm) {
+  addToCartForm.addEventListener('submit', function(e) {
+    const sizeInput = document.getElementById('selected-size');
+    const sizeSelector = document.getElementById('size-selector');
+    if (sizeSelector && (!sizeInput || !sizeInput.value)) {
+      e.preventDefault();
+      sizeSelector.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      sizeSelector.style.outline = '2px solid var(--accent)';
+      sizeSelector.style.borderRadius = '8px';
+      setTimeout(() => { sizeSelector.style.outline = ''; }, 2000);
+      let hint = document.getElementById('size-hint');
+      if (!hint) {
+        hint = document.createElement('p');
+        hint.id = 'size-hint';
+        hint.style.cssText = 'color:var(--accent);font-size:.78rem;margin-top:6px;font-weight:600';
+        hint.textContent = '⚠ Please select a size first';
+        sizeSelector.parentElement.appendChild(hint);
+      }
+      hint.style.display = 'block';
+      setTimeout(() => { if (hint) hint.style.display = 'none'; }, 3000);
+    }
+  });
+}
+// Check PIN Delivery Serviceability (Shiprocket)
+const pdpPinInput = document.getElementById('pdp-pincode');
+const pdpCheckBtn = document.getElementById('btn-pdp-check-pin');
+const pdpResBox = document.getElementById('pdp-pin-result');
+
+if (pdpPinInput && pdpCheckBtn && pdpResBox) {
+  async function checkPdpPincode(pin) {
+    if (!/^[0-9]{6}$/.test(pin)) {
+      pdpResBox.style.display = 'block';
+      pdpResBox.style.background = 'rgba(220, 30, 30, 0.1)';
+      pdpResBox.style.border = '1px solid var(--error)';
+      pdpResBox.style.color = 'var(--error)';
+      pdpResBox.innerHTML = '⚠ Enter a valid 6-digit PIN code.';
+      return;
+    }
+
+    pdpCheckBtn.disabled = true;
+    pdpCheckBtn.textContent = '...';
+    pdpResBox.style.display = 'block';
+    pdpResBox.style.background = 'rgba(255,255,255,0.03)';
+    pdpResBox.style.border = '1px solid var(--border)';
+    pdpResBox.style.color = 'var(--text-muted)';
+    pdpResBox.innerHTML = '<span>⏳</span> Checking delivery...';
+
+    try {
+      const weight = {{ product.weight|default(0.5) }};
+      const res = await fetch(`/api/shipping/check-serviceability?pincode=${pin}&weight=${weight}`);
+      const json = await res.json();
+      const data = json.data || {};
+
+      if (data.serviceable) {
+        pdpResBox.style.background = 'rgba(74, 222, 128, 0.08)';
+        pdpResBox.style.border = '1px solid #4ade80';
+        pdpResBox.style.color = '#4ade80';
+
+        const price = {{ product.discounted_price|default(0) }};
+        const freeShipping = price >= 999;
+        const rateText = freeShipping ? '<strong style=\"color:#4ade80\">FREE Delivery</strong>' : `Standard Delivery: ₹${data.rate || 79}`;
+
+        pdpResBox.innerHTML = `
+          <div style=\"font-weight:600;display:flex;align-items:center;gap:6px\">
+            <span>✓</span> <span>Available for PIN ${pin}</span>
+          </div>
+          <div style=\"color:var(--text);margin-top:4px;font-size:.8rem\">
+            • Delivery in <strong>${data.estimated_days || '3-5 business days'}</strong> via <strong>${data.courier_name || 'Shiprocket'}</strong><br>
+            • ${rateText} ${data.cod_available ? '· Cash on Delivery available' : ''}
+          </div>
+        `;
+      } else {
+        pdpResBox.style.background = 'rgba(220, 30, 30, 0.1)';
+        pdpResBox.style.border = '1px solid var(--error)';
+        pdpResBox.style.color = 'var(--error)';
+        pdpResBox.innerHTML = `
+          <div style=\"font-weight:600\">✕ Not Serviceable</div>
+          <div style=\"font-size:.8rem;color:#fca5a5;margin-top:2px\">
+            ${data.message || 'Delivery is not available to this PIN code.'}
+          </div>
+        `;
+      }
+    } catch (e) {
+      pdpResBox.style.display = 'none';
+    } finally {
+      pdpCheckBtn.disabled = false;
+      pdpCheckBtn.textContent = 'Check';
+    }
+  }
+
+  pdpCheckBtn.addEventListener('click', () => checkPdpPincode(pdpPinInput.value.trim()));
+  pdpPinInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      checkPdpPincode(pdpPinInput.value.trim());
+    }
+  });
+}
+</script>
+{% endblock %}

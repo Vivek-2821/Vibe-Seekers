@@ -1,0 +1,116 @@
+{% extends "user/base_user.html" %}
+{% block user_content %}
+<div class="flex-between mb-3">
+  <div>
+    <h1 style="font-family:var(--font-display);font-size:2rem;font-weight:300">Order #{{ order.order_number }}</h1>
+    <p style="color:var(--text-muted);font-size:.85rem">Placed on {{ order.created_at.strftime('%d %B %Y at %I:%M %p') }}</p>
+  </div>
+  <span class="status-pill status-{{ order.status }}" style="font-size:.9rem;padding:8px 18px">{{ order.status|title }}</span>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 320px;gap:24px">
+  <div>
+    <!-- Shipment Tracking (Shiprocket) -->
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;margin-bottom:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <h3 style="font-family:var(--font-display);font-size:1.1rem;margin:0;display:flex;align-items:center;gap:8px">
+          <span>📦</span> Shipment Status
+        </h3>
+        <span class="status-pill status-{{ order.status }}" style="text-transform:capitalize">
+          {{ order.shipment_status or order.status }}
+        </span>
+      </div>
+
+      <!-- 4 Stages Progress Tracker -->
+      {% set s = order.shipment_status or 'processing' %}
+      <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:8px;margin-bottom:20px;text-align:center">
+        <div style="padding:10px 4px;border-radius:var(--radius);font-size:.78rem;font-weight:600;background:{{ 'rgba(74, 222, 128, 0.12)' if s in ['processing', 'shipped', 'out for delivery', 'delivered'] else 'rgba(255,255,255,0.03)' }};color:{{ '#4ade80' if s in ['processing', 'shipped', 'out for delivery', 'delivered'] else 'var(--text-muted)' }};border:1px solid {{ 'rgba(74, 222, 128, 0.3)' if s in ['processing', 'shipped', 'out for delivery', 'delivered'] else 'var(--border)' }}">
+          1. Processing
+        </div>
+        <div style="padding:10px 4px;border-radius:var(--radius);font-size:.78rem;font-weight:600;background:{{ 'rgba(74, 222, 128, 0.12)' if s in ['shipped', 'out for delivery', 'delivered'] else 'rgba(255,255,255,0.03)' }};color:{{ '#4ade80' if s in ['shipped', 'out for delivery', 'delivered'] else 'var(--text-muted)' }};border:1px solid {{ 'rgba(74, 222, 128, 0.3)' if s in ['shipped', 'out for delivery', 'delivered'] else 'var(--border)' }}">
+          2. Shipped
+        </div>
+        <div style="padding:10px 4px;border-radius:var(--radius);font-size:.78rem;font-weight:600;background:{{ 'rgba(74, 222, 128, 0.12)' if s in ['out for delivery', 'delivered'] else 'rgba(255,255,255,0.03)' }};color:{{ '#4ade80' if s in ['out for delivery', 'delivered'] else 'var(--text-muted)' }};border:1px solid {{ 'rgba(74, 222, 128, 0.3)' if s in ['out for delivery', 'delivered'] else 'var(--border)' }}">
+          3. Out for Delivery
+        </div>
+        <div style="padding:10px 4px;border-radius:var(--radius);font-size:.78rem;font-weight:600;background:{{ 'rgba(74, 222, 128, 0.12)' if s == 'delivered' else 'rgba(255,255,255,0.03)' }};color:{{ '#4ade80' if s == 'delivered' else 'var(--text-muted)' }};border:1px solid {{ 'rgba(74, 222, 128, 0.3)' if s == 'delivered' else 'var(--border)' }}">
+          4. Delivered
+        </div>
+      </div>
+
+      {% if order.awb_code %}
+      <div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:var(--radius);padding:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+        <div>
+          <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:4px">Courier Partner: <strong style="color:var(--text)">{{ order.courier_name or 'Shiprocket Express' }}</strong></p>
+          <p style="font-size:.82rem;color:var(--text-muted);margin:0">AWB Tracking Number: <strong style="color:#38bdf8;font-family:monospace">{{ order.awb_code }}</strong></p>
+        </div>
+        <a href="{{ order.tracking_url or 'https://shiprocket.co/tracking/' + order.awb_code }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:6px">
+          <span>🔍</span> Live Package Tracking ↗
+        </a>
+      </div>
+      {% else %}
+      <p style="font-size:.85rem;color:var(--text-muted);margin:0">
+        Your order is being processed and will be handed over to our courier partner soon.
+      </p>
+      {% endif %}
+    </div>
+
+    <!-- Items -->
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;margin-bottom:20px">
+      <h3 style="font-family:var(--font-display);font-size:1.1rem;margin-bottom:20px">Items Ordered</h3>
+      {% for item in order.items %}
+      <div style="display:flex;gap:16px;padding:16px 0;border-bottom:1px solid var(--border)">
+        {% if item.product_image %}<img src="{{ item.product_image }}" style="width:64px;height:80px;object-fit:cover;border-radius:4px;flex-shrink:0" alt="">{% endif %}
+        <div style="flex:1">
+          <p style="font-weight:500">{{ item.product_name }}</p>
+          <p style="font-size:.82rem;color:var(--text-muted)">{% if item.size %}Size: {{ item.size }}{% endif %}{% if item.color %} · {{ item.color }}{% endif %}</p>
+          <p style="font-size:.85rem;color:var(--text-muted)">Qty: {{ item.quantity }} × ₹{{ '%.0f'|format(item.price) }}</p>
+        </div>
+        <p style="font-weight:600">₹{{ '%.0f'|format(item.price * item.quantity) }}</p>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Shipping -->
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px">
+      <h3 style="font-family:var(--font-display);font-size:1.1rem;margin-bottom:16px">Shipping Address</h3>
+      <p style="font-weight:500">{{ order.shipping_name }}</p>
+      <p style="color:var(--text-muted);font-size:.88rem;line-height:1.7">
+        {{ order.shipping_address }}<br>
+        {{ order.shipping_city }}, {{ order.shipping_state }} – {{ order.shipping_pincode }}<br>
+        {{ order.shipping_phone }}
+      </p>
+      {% if order.tracking_number %}
+      <p style="margin-top:12px;font-size:.85rem">Tracking: <strong style="color:var(--accent)">{{ order.tracking_number }}</strong></p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div>
+    <!-- Summary -->
+    <div class="order-summary" style="margin-bottom:16px">
+      <h3>Payment Summary</h3>
+      <div class="summary-row"><span>Subtotal</span><span>₹{{ '%.0f'|format(order.subtotal) }}</span></div>
+      {% if order.discount_amount %}<div class="summary-row discount"><span>Discount</span><span>−₹{{ '%.0f'|format(order.discount_amount) }}</span></div>{% endif %}
+      <div class="summary-row"><span>Shipping</span><span>{% if order.shipping_cost == 0 %}Free{% else %}₹{{ order.shipping_cost }}{% endif %}</span></div>
+      <div class="summary-row total"><span>Total</span><span>₹{{ '%.0f'|format(order.total) }}</span></div>
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);font-size:.85rem;color:var(--text-muted)">
+        <p>Payment: <strong>{{ order.payment_method|upper }}</strong></p>
+        <p>Status: <strong>{{ order.payment_status|title }}</strong></p>
+      </div>
+    </div>
+
+    <!-- Cancel -->
+    {% if order.status in ['pending', 'confirmed'] %}
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px">
+      <h4 style="font-size:.9rem;margin-bottom:12px">Cancel Order</h4>
+      <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px">You can cancel before the order is shipped.</p>
+      <form method="POST" action="{{ url_for('user.cancel_order', order_number=order.order_number) }}" onsubmit="return confirm('Are you sure you want to cancel this order?')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-danger btn-sm btn-full">Cancel Order</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

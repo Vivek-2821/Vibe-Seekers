@@ -1,0 +1,337 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-hero">
+  <div class="container">
+    <h1>{{ section_title or (selected_category.name if selected_category else 'All Products') }}</h1>
+    <p class="breadcrumbs">
+      <a href="{{ url_for('main.index') }}">Home</a> /
+      {% if section_title or selected_category %}
+        <a href="{{ url_for('shop.all_products') }}">Shop</a> / {{ section_title or selected_category.name }}
+      {% else %}
+        All Products
+      {% endif %}
+    </p>
+  </div>
+</div>
+
+<div class="container" style="padding-bottom:80px">
+  {% set active_count = (1 if selected_category else 0) + (1 if selected_size else 0) + (1 if selected_color else 0) + (1 if min_price or max_price else 0) + (1 if search_q else 0) %}
+
+  <!-- Mobile Filter & Sort Bar (Visible only on mobile/tablet) -->
+  <div class="mobile-filter-bar" style="display:none;margin-bottom:16px;gap:8px;">
+    <button type="button" class="btn btn-secondary mobile-filter-btn" id="open-filter-btn" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:0.85rem;border-radius:8px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+      <span>Filters</span>
+      {% if active_count > 0 %}
+      <span style="background:var(--accent);color:#fff;font-size:0.7rem;font-weight:700;padding:2px 7px;border-radius:10px;">{{ active_count }}</span>
+      {% endif %}
+    </button>
+    <div style="flex:1;">
+      <form method="GET" action="{{ url_for(current_endpoint or 'shop.all_products', **(endpoint_kwargs or {})) }}">
+        {% if search_q %}<input type="hidden" name="q" value="{{ search_q }}">{% endif %}
+        {% if selected_category %}<input type="hidden" name="category" value="{{ selected_category.slug }}">{% endif %}
+        {% if selected_size %}<input type="hidden" name="size" value="{{ selected_size }}">{% endif %}
+        {% if selected_color %}<input type="hidden" name="color" value="{{ selected_color }}">{% endif %}
+        {% if min_price %}<input type="hidden" name="min_price" value="{{ min_price }}">{% endif %}
+        {% if max_price %}<input type="hidden" name="max_price" value="{{ max_price }}">{% endif %}
+        <select name="sort" class="form-control" style="width:100%;min-height:44px;font-size:0.85rem;border-radius:8px;" onchange="this.form.submit()">
+          <option value="newest" {% if sort == 'newest' %}selected{% endif %}>↕ Newest</option>
+          <option value="price_asc" {% if sort == 'price_asc' %}selected{% endif %}>↕ Price: Low–High</option>
+          <option value="price_desc" {% if sort == 'price_desc' %}selected{% endif %}>↕ Price: High–Low</option>
+          <option value="name" {% if sort == 'name' %}selected{% endif %}>↕ Name A–Z</option>
+        </select>
+      </form>
+    </div>
+  </div>
+
+  <div class="shop-layout-grid" style="display:grid;grid-template-columns:260px 1fr;gap:40px;align-items:start">
+    <!-- Filter Drawer Backdrop (Mobile) -->
+    <div class="filter-backdrop" id="filter-backdrop"></div>
+
+    <!-- Filters sidebar / bottom drawer -->
+    <aside class="filter-sidebar" id="filter-sidebar">
+      <div class="filter-sidebar-inner" style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;position:sticky;top:calc(var(--nav-height)+24px)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+          <h3 style="font-family:var(--font-display);font-size:1.2rem;font-weight:400;margin:0;">
+            Filters {% if active_count > 0 %}<span style="font-size:0.85rem;color:var(--accent);">({{ active_count }})</span>{% endif %}
+          </h3>
+          <div style="display:flex;align-items:center;gap:12px;">
+            {% if active_count > 0 %}
+            <a href="{{ url_for(current_endpoint or 'shop.all_products', **(endpoint_kwargs or {})) }}" style="font-size:0.78rem;color:var(--accent);text-decoration:none;">Reset All</a>
+            {% endif %}
+            <button type="button" class="filter-close-btn" id="close-filter-btn" aria-label="Close filters" style="display:none;background:none;border:none;color:var(--text);font-size:1.4rem;cursor:pointer;width:36px;height:36px;align-items:center;justify-content:center;">✕</button>
+          </div>
+        </div>
+
+        <form method="GET" action="{{ url_for(current_endpoint or 'shop.all_products', **(endpoint_kwargs or {})) }}" id="filter-form">
+          {% if sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
+
+          <!-- Search keyword -->
+          <div class="form-group">
+            <label class="form-label">Search in Collection</label>
+            <input type="text" name="q" class="form-control" placeholder="Search keywords…" value="{{ search_q or '' }}">
+          </div>
+
+          <!-- Category filter -->
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select name="category" class="form-control" onchange="document.getElementById('filter-form').submit()">
+              <option value="">All Categories</option>
+              {% for cat in categories %}
+              <option value="{{ cat.slug }}" {% if selected_category and selected_category.slug == cat.slug %}selected{% endif %}>{{ cat.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Size filter (Touch Friendly Min 44px) -->
+          <div class="form-group">
+            <label class="form-label">Size</label>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+              {% for sz in (available_sizes or ['XS', 'S', 'M', 'L', 'XL', 'XXL']) %}
+              <label style="cursor:pointer;margin:0;">
+                <input type="radio" name="size" value="{{ sz }}" {% if selected_size == sz %}checked{% endif %} style="display:none;" onchange="document.getElementById('filter-form').submit()">
+                <span style="display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;padding:8px 14px;font-size:0.85rem;font-weight:600;border-radius:8px;border:1.5px solid {{ 'var(--accent)' if selected_size == sz else 'var(--border)' }};background:{{ 'var(--accent)' if selected_size == sz else 'rgba(255,255,255,0.03)' }};color:{{ '#ffffff' if selected_size == sz else 'var(--text-muted)' }};transition:all 0.15s ease;">
+                  {{ sz }}
+                </span>
+              </label>
+              {% endfor %}
+            </div>
+            {% if selected_size %}
+            <div style="margin-top:8px;">
+              <a href="{{ url_for(current_endpoint or 'shop.all_products', category=selected_category.slug if selected_category else None, color=selected_color, min_price=min_price, max_price=max_price, sort=sort, q=search_q) }}" style="font-size:0.75rem;color:var(--text-dim);text-decoration:none;">Clear size ({{ selected_size }}) ✕</a>
+            </div>
+            {% endif %}
+          </div>
+
+          <!-- Color filter -->
+          {% if available_colors %}
+          <div class="form-group">
+            <label class="form-label">Color</label>
+            <select name="color" class="form-control" onchange="document.getElementById('filter-form').submit()">
+              <option value="">All Colors</option>
+              {% for clr in available_colors %}
+              <option value="{{ clr }}" {% if selected_color == clr %}selected{% endif %}>{{ clr }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% endif %}
+
+          <!-- Price Range -->
+          <div class="form-group">
+            <label class="form-label">Price Range (₹)</label>
+            <div style="display:flex;gap:8px">
+              <input type="number" name="min_price" class="form-control" placeholder="Min" value="{{ '%.0f'|format(min_price) if min_price else '' }}" style="width:50%;min-height:44px;">
+              <input type="number" name="max_price" class="form-control" placeholder="Max" value="{{ '%.0f'|format(max_price) if max_price else '' }}" style="width:50%;min-height:44px;">
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px;margin-top:20px;">
+            <button type="submit" class="btn btn-primary" style="flex:1;min-height:44px;font-size:0.9rem;">Apply Filters</button>
+            {% if active_count > 0 %}
+            <a href="{{ url_for(current_endpoint or 'shop.all_products', **(endpoint_kwargs or {})) }}" class="btn btn-secondary" style="min-height:44px;display:flex;align-items:center;justify-content:center;font-size:0.85rem;">Clear</a>
+            {% endif %}
+          </div>
+        </form>
+      </div>
+    </aside>
+
+    <!-- Products list -->
+    <div>
+      <!-- Desktop Header row: Count & Sorting -->
+      <div class="desktop-shop-header flex-between mb-3" style="padding-bottom:16px;border-bottom:1px solid var(--border)">
+        <p style="font-size:.85rem;color:var(--text-muted);margin:0;">
+          {% if products and products.total is defined %}
+            Showing <strong>{{ products.items|length }}</strong> of <strong>{{ products.total }}</strong> products
+          {% elif products and products.items is defined %}
+            <strong>{{ products.items|length }}</strong> products
+          {% else %}
+            0 products
+          {% endif %}
+        </p>
+
+        <!-- Sort dropdown for desktop -->
+        <form method="GET" action="{{ url_for(current_endpoint or 'shop.all_products', **(endpoint_kwargs or {})) }}" style="display:flex;align-items:center;gap:8px">
+          {% if search_q %}<input type="hidden" name="q" value="{{ search_q }}">{% endif %}
+          {% if selected_category %}<input type="hidden" name="category" value="{{ selected_category.slug }}">{% endif %}
+          {% if selected_size %}<input type="hidden" name="size" value="{{ selected_size }}">{% endif %}
+          {% if selected_color %}<input type="hidden" name="color" value="{{ selected_color }}">{% endif %}
+          {% if min_price %}<input type="hidden" name="min_price" value="{{ min_price }}">{% endif %}
+          {% if max_price %}<input type="hidden" name="max_price" value="{{ max_price }}">{% endif %}
+
+          <label style="font-size:.8rem;color:var(--text-muted);white-space:nowrap;">Sort by</label>
+          <select name="sort" class="form-control" style="width:auto;padding:7px 28px 7px 10px;font-size:0.82rem;" onchange="this.form.submit()">
+            <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest First</option>
+            <option value="price_asc" {% if sort == 'price_asc' %}selected{% endif %}>Price: Low to High</option>
+            <option value="price_desc" {% if sort == 'price_desc' %}selected{% endif %}>Price: High to Low</option>
+            <option value="name" {% if sort == 'name' %}selected{% endif %}>Name: A to Z</option>
+          </select>
+        </form>
+      </div>
+
+      <!-- Active Filter Badges -->
+      {% if selected_category or selected_size or selected_color or min_price or max_price %}
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;">
+        {% if selected_category %}
+        <span style="font-size:0.75rem;background:rgba(255,255,255,0.06);border:1px solid var(--border);padding:4px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:6px;">
+          Category: {{ selected_category.name }}
+          <a href="{{ url_for(current_endpoint or 'shop.all_products', size=selected_size, color=selected_color, min_price=min_price, max_price=max_price, sort=sort, q=search_q) }}" style="color:var(--text-muted);text-decoration:none;">✕</a>
+        </span>
+        {% endif %}
+        {% if selected_size %}
+        <span style="font-size:0.75rem;background:rgba(255,255,255,0.06);border:1px solid var(--border);padding:4px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:6px;">
+          Size: {{ selected_size }}
+          <a href="{{ url_for(current_endpoint or 'shop.all_products', category=selected_category.slug if selected_category else None, color=selected_color, min_price=min_price, max_price=max_price, sort=sort, q=search_q) }}" style="color:var(--text-muted);text-decoration:none;">✕</a>
+        </span>
+        {% endif %}
+        {% if selected_color %}
+        <span style="font-size:0.75rem;background:rgba(255,255,255,0.06);border:1px solid var(--border);padding:4px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:6px;">
+          Color: {{ selected_color }}
+          <a href="{{ url_for(current_endpoint or 'shop.all_products', category=selected_category.slug if selected_category else None, size=selected_size, min_price=min_price, max_price=max_price, sort=sort, q=search_q) }}" style="color:var(--text-muted);text-decoration:none;">✕</a>
+        </span>
+        {% endif %}
+        {% if min_price or max_price %}
+        <span style="font-size:0.75rem;background:rgba(255,255,255,0.06);border:1px solid var(--border);padding:4px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:6px;">
+          Price: ₹{{ '%.0f'|format(min_price or 0) }} – ₹{{ '%.0f'|format(max_price or 99999) }}
+          <a href="{{ url_for(current_endpoint or 'shop.all_products', category=selected_category.slug if selected_category else None, size=selected_size, color=selected_color, sort=sort, q=search_q) }}" style="color:var(--text-muted);text-decoration:none;">✕</a>
+        </span>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <!-- Products Grid (2 columns on mobile) -->
+      {% set item_list = products.items if products and products.items is defined else [] %}
+      {% if item_list %}
+        <div class="grid-3" style="display:grid;grid-template-columns:repeat(3, 1fr);gap:24px;">
+          {% for product in item_list %}
+          {% include 'partials/product_card.html' %}
+          {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        {% if products and products.pages and products.pages > 1 %}
+        <nav class="pagination" style="margin-top:40px;">
+          {% if products.has_prev %}
+          <a href="{{ url_for(current_endpoint or 'shop.all_products', page=products.prev_num, category=selected_category.slug if selected_category else None, size=selected_size, color=selected_color, min_price=min_price, max_price=max_price, sort=sort, q=search_q, **(endpoint_kwargs or {})) }}" class="page-link" style="min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;">← Prev</a>
+          {% endif %}
+
+          {% for n in products.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+            {% if n %}
+              <a class="page-link {% if n == products.page %}active{% endif %}" href="{{ url_for(current_endpoint or 'shop.all_products', page=n, category=selected_category.slug if selected_category else None, size=selected_size, color=selected_color, min_price=min_price, max_price=max_price, sort=sort, q=search_q, **(endpoint_kwargs or {})) }}" style="min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;">{{ n }}</a>
+            {% else %}
+              <span class="page-link disabled" style="min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;">…</span>
+            {% endif %}
+          {% endfor %}
+
+          {% if products.has_next %}
+          <a href="{{ url_for(current_endpoint or 'shop.all_products', page=products.next_num, category=selected_category.slug if selected_category else None, size=selected_size, color=selected_color, min_price=min_price, max_price=max_price, sort=sort, q=search_q, **(endpoint_kwargs or {})) }}" class="page-link" style="min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;">Next →</a>
+          {% endif %}
+        </nav>
+        {% endif %}
+
+      {% else %}
+        <!-- Clean Empty State -->
+        <div class="empty-state" style="padding:60px 24px;">
+          <div class="empty-state-icon" style="font-size:3rem;margin-bottom:16px;">🔍</div>
+          <h3 style="font-family:var(--font-display);font-size:1.4rem;font-weight:400;margin-bottom:8px;">No pieces found</h3>
+          <p style="font-size:0.9rem;color:var(--text-muted);max-width:440px;margin:0 auto 20px;">
+            {% if search_q %}
+              We couldn't find any items matching "<strong>{{ search_q }}</strong>". Try checking for spelling errors or removing filters.
+            {% elif selected_size or selected_color or selected_category %}
+              No items currently match the selected combination of filters. Try clearing some filters.
+            {% else %}
+              This collection is currently being curated with fresh streetwear drops. Stay tuned!
+            {% endif %}
+          </p>
+          <a href="{{ url_for('shop.all_products') }}" class="btn btn-outline" style="display:inline-flex;padding:10px 24px;font-size:0.85rem;min-height:44px;align-items:center;">Browse All Products</a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<style>
+@media (max-width: 860px) {
+  .shop-layout-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0 !important;
+  }
+  .mobile-filter-bar {
+    display: flex !important;
+  }
+  .desktop-shop-header {
+    display: none !important;
+  }
+
+  /* Filter drawer as bottom sheet on mobile */
+  .filter-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 9998;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  .filter-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .filter-sidebar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-height: 85vh;
+    background: #0e0e14;
+    border-top: 1px solid var(--border);
+    border-radius: 20px 20px 0 0;
+    z-index: 9999;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5);
+  }
+  .filter-sidebar.open {
+    transform: translateY(0);
+  }
+  .filter-sidebar-inner {
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 20px 16px calc(24px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  .filter-close-btn {
+    display: flex !important;
+  }
+}
+</style>
+
+<script>
+// Mobile Filter Bottom Sheet Toggle
+(function() {
+  const openBtn = document.getElementById('open-filter-btn');
+  const closeBtn = document.getElementById('close-filter-btn');
+  const drawer = document.getElementById('filter-sidebar');
+  const backdrop = document.getElementById('filter-backdrop');
+
+  function openFilters() {
+    drawer?.classList.add('open');
+    backdrop?.classList.add('open');
+    document.body.classList.add('menu-open');
+  }
+
+  function closeFilters() {
+    drawer?.classList.remove('open');
+    backdrop?.classList.remove('open');
+    document.body.classList.remove('menu-open');
+  }
+
+  openBtn?.addEventListener('click', openFilters);
+  closeBtn?.addEventListener('click', closeFilters);
+  backdrop?.addEventListener('click', closeFilters);
+})();
+</script>
+{% endblock %}

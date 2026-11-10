@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="auth-page">
+  <div class="auth-card" style="max-width:500px">
+    <div class="section-subtitle mb-1">Join the Community</div>
+    <h1 class="auth-title">Create Account</h1>
+    <p class="auth-sub">Already have an account? <a href="{{ url_for('auth.login') }}" style="color:var(--accent)">Sign in</a></p>
+
+    <form method="POST" action="{{ url_for('auth.register') }}" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <!-- Bot Honeypot field (hidden from real users) -->
+      <div style="display:none;" aria-hidden="true">
+        <input type="text" name="website_url" id="reg_website_url" tabindex="-1" autocomplete="off">
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label" for="name">Full Name</label>
+        <input type="text" id="name" name="name" class="form-control" placeholder="Your full name" required autocomplete="name">
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label" for="email">Email Address</label>
+        <input type="email" id="email" name="email" class="form-control" placeholder="you@example.com" required autocomplete="email">
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label" for="phone">Phone (optional)</label>
+        <input type="tel" id="phone" name="phone" class="form-control" placeholder="+91 98765 43210" autocomplete="tel">
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label" for="password">Password</label>
+        <div style="position:relative">
+          <input type="password" id="password" name="password" class="form-control" placeholder="At least 8 characters" required minlength="8">
+          <button type="button" onclick="togglePwd('password')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:.8rem">Show</button>
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label" for="confirm_password">Confirm Password</label>
+        <input type="password" id="confirm_password" name="confirm_password" class="form-control" placeholder="Repeat your password" required minlength="8">
+      </div>
+      
+      <div style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:var(--radius);padding:12px 16px;margin-bottom:20px;font-size:.85rem">
+        🎁 <strong>Welcome gift:</strong> Get 10% off your first order automatically applied at checkout!
+      </div>
+      
+      <button type="submit" class="btn btn-primary btn-full">Create Account</button>
+    </form>
+
+    <p class="auth-footer-text" style="font-size:.78rem;margin-top:16px">
+      By creating an account, you agree to our <a href="{{ url_for('main.terms') }}" style="color:var(--text-muted)">Terms</a> and <a href="{{ url_for('main.privacy_policy') }}" style="color:var(--text-muted)">Privacy Policy</a>.
+    </p>
+  </div>
+</div>
+<script>function togglePwd(id){const i=document.getElementById(id);i.type=i.type==='password'?'text':'password'}</script>
+{% endblock %}
+{% block no_footer %}{% endblock %}

@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>{% block title %}{{ title or 'Vibe Seekers' }}{% endblock %}</title>
+  <meta name="description" content="{% block meta_description %}Vibe Seekers – Premium fashion for those who set trends. Discover curated clothing collections with free shipping over ₹999.{% endblock %}">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="{{ request.url }}">
+  <!-- PWA & Mobile Meta -->
+  <meta name="theme-color" content="#080808">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/static/manifest.json">
+  <link rel="apple-touch-icon" href="/static/images/favicon.png">
+  <!-- Open Graph -->
+  <meta property="og:title" content="{{ title or 'Vibe Seekers' }}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ request.url }}">
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="/static/images/favicon.png">
+  <!-- Fonts preload -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- CSS -->
+  <link rel="stylesheet" href="/static/css/main.css">
+  {% block extra_css %}{% endblock %}
+  <style>
+  /* ═══════════════════════════════════════════════════
+     PAGE TRANSITION — Fast clean red wipe (no logo)
+     Fires on every internal navigation
+  ═══════════════════════════════════════════════════ */
+  #page-transition {
+    position: fixed;
+    inset: 0;
+    z-index: 99998;
+    background: transparent;
+    display: flex;
+    align-items: stretch;
+    pointer-events: none;
+    opacity: 1;
+  }
+  #page-transition.active { pointer-events: all; }
+
+  /* Scanline overlay */
+  #page-transition::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg, transparent, transparent 3px,
+      rgba(220,30,30,0.025) 3px, rgba(220,30,30,0.025) 4px
+    );
+    animation: scanlines 1s linear infinite;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  #page-transition.active::before { opacity: 1; }
+
+  @keyframes scanlines {
+    from { background-position: 0 0; }
+    to   { background-position: 0 100px; }
+  }
+
+  /* Spark particles */
+  .pt-spark {
+    position: fixed;
+    width: 3px;
+    border-radius: 3px;
+    background: linear-gradient(to bottom, #fff, #DC1E1E);
+    animation: sparkFly 0.55s ease-out both;
+    z-index: 99999;
+  }
+  @keyframes sparkFly {
+    0%   { opacity: 1; transform: translateY(0) scaleY(1); }
+    100% { opacity: 0; transform: translateY(var(--dy)) translateX(var(--dx)) scaleY(0.2); }
+  }
+
+  /* Wipe panels — fast, no logo */
+  .pt-panel {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 20%;
+    background: #0a0a0a;
+    transform: scaleY(0);
+    transform-origin: top;
+    border-right: 1px solid rgba(220,30,30,0.3);
+  }
+  #page-transition.exit .pt-panel {
+    animation: panelWipe 0.38s cubic-bezier(0.77,0,0.18,1) both;
+  }
+  @keyframes panelWipe {
+    0%   { transform: scaleY(0); transform-origin: top; }
+    50%  { transform: scaleY(1); transform-origin: top; }
+    51%  { transform: scaleY(1); transform-origin: bottom; }
+    100% { transform: scaleY(0); transform-origin: bottom; }
+  }
+  .pt-panel:nth-child(1) { left: 0%;  animation-delay: 0.00s !important; }
+  .pt-panel:nth-child(2) { left: 20%; animation-delay: 0.05s !important; }
+  .pt-panel:nth-child(3) { left: 40%; animation-delay: 0.02s !important; }
+  .pt-panel:nth-child(4) { left: 60%; animation-delay: 0.07s !important; }
+  .pt-panel:nth-child(5) { left: 80%; animation-delay: 0.01s !important; }
+
+  /* Page load fade */
+  #page-transition.enter {
+    background: #000;
+    animation: transitionEnter 0.45s ease forwards 0.05s;
+  }
+  @keyframes transitionEnter {
+    from { opacity: 1; }
+    to   { opacity: 0; }
+  }
+
+
+  </style>
+
+</head>
+<body>
+
+<!-- Announcement Bar -->
+{% if site_settings.get('announcement_active', 'true') != 'false' %}
+<div class="announcement-bar" id="announcement-bar">
+  <span>{{ site_settings.get('announcement_text', 'Sign up for 10% off your first order') }}</span>
+  <a href="{{ url_for('main.contact') }}">Contact Us →</a>
+</div>
+{% endif %}
+
+<!-- Navbar -->
+<nav class="navbar" id="navbar">
+  <div class="container navbar-inner">
+    <!-- Left: Hamburger on Mobile / Category Links on Desktop -->
+    <div class="nav-left">
+      <button class="hamburger mobile-only-flex" id="hamburger" aria-label="Open Menu" title="Menu">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="desktop-only-links">
+        <a href="{{ url_for('shop.all_products') }}" class="nav-link {% if request.endpoint == 'shop.all_products' %}active{% endif %}">Shop</a>
+        <a href="{{ url_for('shop.new_arrivals') }}" class="nav-link {% if request.endpoint == 'shop.new_arrivals' %}active{% endif %}">New In</a>
+        <a href="{{ url_for('shop.trending') }}" class="nav-link {% if request.endpoint == 'shop.trending' %}active{% endif %}">Trending</a>
+        <a href="{{ url_for('shop.best_selling') }}" class="nav-link {% if request.endpoint == 'shop.best_selling' %}active{% endif %}">Best Selling</a>
+      </div>
+    </div>
+
+    <!-- Center Logo -->
+    <div class="nav-center">
+      <a href="{{ url_for('main.index') }}" class="logo-wrapper" aria-label="Vibe Seekers Home">
+        <img src="/static/images/logo.png" alt="Vibe Seekers" class="logo-image" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+        <span class="logo-text" style="display:none">Vibe Seekers</span>
+      </a>
+    </div>
+
+    <!-- Right Icons: Search, Wishlist, Cart, Account (desktop only for account) -->
+    <div class="nav-right">
+      <!-- Search Button -->
+      <button class="nav-icon-btn" id="search-toggle" aria-label="Search" title="Search">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      </button>
+
+      <!-- Wishlist Button -->
+      <a href="{% if current_user.is_authenticated %}{{ url_for('user.wishlist') }}{% else %}{{ url_for('auth.login') }}?next={{ url_for('user.wishlist') }}{% endif %}" class="nav-icon-btn" title="Wishlist" aria-label="Wishlist">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        {% if wishlist_count and wishlist_count > 0 %}<span class="badge">{{ wishlist_count }}</span>{% endif %}
+      </a>
+
+      <!-- Cart Button -->
+      <a href="{{ url_for('cart.view_cart') }}" class="nav-icon-btn" title="Shopping Cart" aria-label="Shopping Cart">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        <span class="badge" id="cart-badge" style="{% if not cart_count or cart_count == 0 %}display:none;{% endif %}">{{ cart_count or 0 }}</span>
+      </a>
+
+      <!-- Account / Login Button (Visible on both Mobile and Desktop) -->
+      {% if current_user.is_authenticated %}
+        {% if current_user.is_admin %}
+          <a href="{{ url_for('admin.dashboard') }}" class="nav-icon-btn" title="Admin Panel" aria-label="Admin Panel">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><path d="M12 8v4l3 3"/></svg>
+          </a>
+        {% else %}
+          <a href="{{ url_for('user.dashboard') }}" class="nav-icon-btn" title="My Account ({{ current_user.name.split()[0] }})" aria-label="My Account">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </a>
+        {% endif %}
+      {% else %}
+        <a href="{{ url_for('auth.login') }}" class="nav-icon-btn" title="Sign In / Login" aria-label="Sign In">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </a>
+      {% endif %}
+    </div>
+  </div>
+</nav>
+
+<!-- Mobile Nav Drawer & Backdrop -->
+<div class="mobile-nav-backdrop" id="mobile-nav-backdrop"></div>
+<div class="mobile-nav" id="mobile-nav" aria-label="Mobile Navigation Menu">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px 20px;border-bottom:1px solid var(--border);">
+    <span class="logo-text" style="font-size:1.5rem;letter-spacing:0.12em;">Vibe Seekers</span>
+    <button class="mobile-nav-close" id="mobile-nav-close" aria-label="Close menu" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:var(--text);font-size:1.5rem;cursor:pointer;">✕</button>
+  </div>
+  
+  <div class="mobile-nav-scroll" style="padding:16px 0;overflow-y:auto;flex:1;">
+    <a href="{{ url_for('shop.all_products') }}" class="mobile-nav-link">Shop All Products</a>
+    
+    <!-- Expandable Categories Accordion -->
+    {% if nav_categories %}
+    <div class="mobile-cat-accordion">
+      <button type="button" class="mobile-nav-link mobile-cat-toggle" id="mobile-cat-toggle" style="width:100%;display:flex;justify-content:space-between;align-items:center;background:none;border:none;cursor:pointer;text-align:left;">
+        <span>Shop by Category</span>
+        <span class="cat-chevron" id="cat-chevron" style="transition:transform 0.2s ease;">▾</span>
+      </button>
+      <div class="mobile-cat-dropdown" id="mobile-cat-dropdown" style="display:none;padding-left:16px;background:rgba(255,255,255,0.02);">
+        {% for c in nav_categories %}
+        <a href="{{ url_for('shop.category', slug=c.slug) }}" class="mobile-nav-sublink" style="display:block;padding:12px 16px;color:var(--text-muted);font-size:0.92rem;text-decoration:none;">{{ c.name }}</a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <a href="{{ url_for('shop.new_arrivals') }}" class="mobile-nav-link">New In</a>
+    <a href="{{ url_for('shop.trending') }}" class="mobile-nav-link">Trending</a>
+    <a href="{{ url_for('shop.best_selling') }}" class="mobile-nav-link">Best Selling</a>
+    <a href="{{ url_for('main.track_order') }}" class="mobile-nav-link">Track My Order</a>
+    <a href="{{ url_for('main.about') }}" class="mobile-nav-link">About Us</a>
+    <a href="{{ url_for('main.contact') }}" class="mobile-nav-link">Contact</a>
+  </div>
+
+  <div style="padding:16px 20px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:10px;">
+    {% if current_user.is_authenticated %}
+      {% if current_user.is_admin %}
+        <a href="{{ url_for('admin.dashboard') }}" class="btn btn-primary btn-full" style="min-height:44px;display:flex;align-items:center;justify-content:center;gap:8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><path d="M12 8v4l3 3"/></svg>
+          Admin Panel
+        </a>
+      {% else %}
+        <a href="{{ url_for('user.dashboard') }}" class="btn btn-outline btn-full" style="min-height:44px;display:flex;align-items:center;justify-content:center;gap:8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          My Account ({{ current_user.name.split()[0] }})
+        </a>
+      {% endif %}
+      <a href="{{ url_for('auth.logout') }}" class="btn btn-ghost btn-full" style="font-size:0.85rem;min-height:44px;display:flex;align-items:center;justify-content:center;gap:8px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Sign Out
+      </a>
+    {% else %}
+      <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-full" style="min-height:44px;display:flex;align-items:center;justify-content:center;gap:8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Sign In / Login
+      </a>
+      <a href="{{ url_for('auth.register') }}" class="btn btn-outline btn-full" style="min-height:44px;display:flex;align-items:center;justify-content:center;">Create Account</a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Search Overlay -->
+<div class="search-overlay" id="search-overlay">
+  <div class="search-inner">
+    <button id="search-close" style="position:absolute;top:24px;right:24px;color:var(--text-muted);font-size:1.5rem;background:none;border:none;cursor:pointer;">✕</button>
+    <div class="section-subtitle mb-2">Search</div>
+    <input type="text" class="search-input" id="live-search" placeholder="What are you looking for?" autocomplete="off">
+    <p class="search-hint">Press Esc to close</p>
+    <div class="search-results-dropdown" id="search-results"></div>
+  </div>
+</div>
+
+<!-- Flash Messages -->
+<div class="flash-container" id="flash-container">
+  {% with messages = get_flashed_messages(with_categories=True) %}
+    {% for category, message in messages %}
+      <div class="flash flash-{{ category }}">
+        <span>{{ message|safe }}</span>
+        <button class="flash-close" onclick="this.parentElement.remove()">✕</button>
+      </div>
+    {% endfor %}
+  {% endwith %}
+</div>
+
+<!-- Page Transition Overlay (nav transitions - NO logo) -->
+<div id="page-transition" class="enter" aria-hidden="true">
+  <div class="pt-panel"></div>
+  <div class="pt-panel"></div>
+  <div class="pt-panel"></div>
+  <div class="pt-panel"></div>
+  <div class="pt-panel"></div>
+</div>
+
+
+
+<!-- Main Content -->
+<main id="main-content">
+  {% block content %}{% endblock %}
+</main>
+
+{% block no_footer %}
+<!-- Footer -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <h3>Vibe Seekers</h3>
+        <p>We believe style is a language. Every piece in our collection tells a story — and we're here to help you tell yours. Curated fashion for the bold, the free, and the unapologetically authentic.</p>
+        <div class="social-links">
+          <a href="{{ site_settings.get('social_instagram') or 'https://www.instagram.com/vibe_seekers_09' }}" class="social-link" target="_blank" rel="noopener noreferrer" title="Instagram">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+          </a>
+          {% if site_settings.get('social_facebook') %}
+          <a href="{{ site_settings.social_facebook }}" class="social-link" target="_blank" rel="noopener noreferrer" title="Facebook">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+          </a>
+          {% endif %}
+        </div>
+      </div>
+      <div class="footer-col">
+        <h4>Shop</h4>
+        <ul>
+          <li><a href="{{ url_for('shop.all_products') }}">All Products</a></li>
+          <li><a href="{{ url_for('shop.new_arrivals') }}">New Arrivals</a></li>
+          <li><a href="{{ url_for('shop.trending') }}">Trending</a></li>
+          <li><a href="{{ url_for('shop.best_selling') }}">Best Selling</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Help</h4>
+        <ul>
+          <li><a href="{{ url_for('main.faq') }}">FAQ</a></li>
+          <li><a href="{{ url_for('main.shipping_policy') }}">Shipping & Returns</a></li>
+          <li><a href="{{ url_for('main.refund_policy') }}">Refund Policy</a></li>
+          <li><a href="{{ url_for('main.contact') }}">Contact Us</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Company</h4>
+        <ul>
+          <li><a href="{{ url_for('main.about') }}">About Us</a></li>
+          <li><a href="{{ url_for('main.privacy_policy') }}">Privacy Policy</a></li>
+          <li><a href="{{ url_for('main.terms') }}">Terms & Conditions</a></li>
+          <li><a href="{{ url_for('main.track_order') }}">Track Order</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; {{ now.year if now else 2024 }} Vibe Seekers. All rights reserved.</p>
+      <p>Crafted with ♥ in India &nbsp;|&nbsp; 100% Secure Payments via Razorpay &amp; Cash on Delivery</p>
+    </div>
+  </div>
+</footer>
+{% endblock %}
+
+<!-- Mobile Bottom Navigation Bar (Fixed above safe area) -->
+<nav class="mobile-bottom-nav" aria-label="Mobile Bottom Navigation">
+  <a href="{{ url_for('main.index') }}" class="mobile-bottom-item {% if request.endpoint == 'main.index' %}active{% endif %}" aria-label="Home">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    <span>Home</span>
+  </a>
+  <a href="{{ url_for('shop.all_products') }}" class="mobile-bottom-item {% if request.endpoint and request.endpoint.startswith('shop.') and request.endpoint != 'shop.product_detail' %}active{% endif %}" aria-label="Shop">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+    <span>Shop</span>
+  </a>
+  <a href="{% if current_user.is_authenticated %}{{ url_for('user.wishlist') }}{% else %}{{ url_for('auth.login') }}?next={{ url_for('user.wishlist') }}{% endif %}" class="mobile-bottom-item {% if request.endpoint == 'user.wishlist' %}active{% endif %}" aria-label="Wishlist">
+    <div style="position:relative;display:inline-flex;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+      {% if wishlist_count and wishlist_count > 0 %}
+      <span class="mobile-nav-badge">{{ wishlist_count }}</span>
+      {% endif %}
+    </div>
+    <span>Wishlist</span>
+  </a>
+  <a href="{{ url_for('cart.view_cart') }}" class="mobile-bottom-item {% if request.endpoint and request.endpoint.startswith('cart.') %}active{% endif %}" aria-label="Cart">
+    <div style="position:relative;display:inline-flex;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+      <span class="mobile-nav-badge" id="bottom-cart-badge" style="{% if not cart_count or cart_count == 0 %}display:none;{% endif %}">{{ cart_count or 0 }}</span>
+    </div>
+    <span>Cart</span>
+  </a>
+  {% if current_user.is_authenticated %}
+    <a href="{% if current_user.is_admin %}{{ url_for('admin.dashboard') }}{% else %}{{ url_for('user.dashboard') }}{% endif %}" class="mobile-bottom-item {% if request.endpoint and (request.endpoint.startswith('user.') or request.endpoint.startswith('admin.')) %}active{% endif %}" aria-label="Account">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span>Account</span>
+    </a>
+  {% else %}
+    <a href="{{ url_for('auth.login') }}" class="mobile-bottom-item {% if request.endpoint and request.endpoint.startswith('auth.') %}active{% endif %}" aria-label="Account">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span>Account</span>
+    </a>
+  {% endif %}
+</nav>
+
+<!-- JavaScript -->
+<script>
+// Navbar scroll effect
+const navbar = document.getElementById('navbar');
+window.addEventListener('scroll', () => {
+  navbar.classList.toggle('scrolled', window.scrollY > 50);
+});
+
+// Mobile nav drawer with scroll lock & backdrop
+const hamburger = document.getElementById('hamburger');
+const mobileNav = document.getElementById('mobile-nav');
+const mobileNavBackdrop = document.getElementById('mobile-nav-backdrop');
+const mobileNavClose = document.getElementById('mobile-nav-close');
+const catToggle = document.getElementById('mobile-cat-toggle');
+const catDropdown = document.getElementById('mobile-cat-dropdown');
+const catChevron = document.getElementById('cat-chevron');
+
+function openMobileMenu() {
+  mobileNav?.classList.add('open');
+  mobileNavBackdrop?.classList.add('open');
+  document.body.classList.add('menu-open');
+}
+
+function closeMobileMenu() {
+  mobileNav?.classList.remove('open');
+  mobileNavBackdrop?.classList.remove('open');
+  document.body.classList.remove('menu-open');
+}
+
+hamburger?.addEventListener('click', openMobileMenu);
+mobileNavClose?.addEventListener('click', closeMobileMenu);
+mobileNavBackdrop?.addEventListener('click', closeMobileMenu);
+
+catToggle?.addEventListener('click', () => {
+  const isClosed = !catDropdown.style.display || catDropdown.style.display === 'none';
+  catDropdown.style.display = isClosed ? 'block' : 'none';
+  if (catChevron) catChevron.style.transform = isClosed ? 'rotate(180deg)' : '';
+});
+
+// Search overlay
+const searchToggle = document.getElementById('search-toggle');
+const searchOverlay = document.getElementById('search-overlay');
+const searchClose = document.getElementById('search-close');
+const liveSearch = document.getElementById('live-search');
+const searchResults = document.getElementById('search-results');
+
+searchToggle?.addEventListener('click', () => {
+  searchOverlay.classList.add('open');
+  liveSearch?.focus();
+});
+searchClose?.addEventListener('click', () => searchOverlay.classList.remove('open'));
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') searchOverlay.classList.remove('open');
+});
+
+// Live search
+let searchTimer;
+liveSearch?.addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  const q = liveSearch.value.trim();
+  if (q.length < 2) { searchResults.innerHTML = ''; return; }
+  searchTimer = setTimeout(() => {
+    fetch(`/api/products/search?q=${encodeURIComponent(q)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (!data.length) {
+          searchResults.innerHTML = '<p style="color:var(--text-dim);font-size:.85rem;padding:12px">No results found.</p>';
+          return;
+        }
+        searchResults.innerHTML = data.map(p => `
+          <a href="${p.url}" class="search-result-item">
+            ${p.image ? `<img src="${p.image}" alt="${p.name}" onerror="this.style.display='none'">` : ''}
+            <div>
+              <div class="search-result-name">${p.name}</div>
+              <div class="search-result-price">₹${p.price.toLocaleString('en-IN')}</div>
+            </div>
+          </a>`).join('');
+      })
+      .catch(() => {});
+  }, 300);
+});
+
+// Universal Toast Notification System (Mobile & Desktop)
+function showToast(message, type = 'success') {
+  let container = document.getElementById('flash-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'flash-container';
+    container.className = 'flash-container';
+    document.body.appendChild(container);
+  }
+  const toast = document.createElement('div');
+  toast.className = `flash flash-${type}`;
+  toast.innerHTML = `
+    <span>${message}</span>
+    <button class="flash-close" onclick="this.parentElement.remove()">✕</button>
+  `;
+  container.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; }, 5000);
+  setTimeout(() => { toast.remove(); }, 5500);
+}
+
+// Universal AJAX Newsletter & "Get Notified" handler
+document.addEventListener('submit', function(e) {
+  const form = e.target.closest ? e.target.closest('.ajax-newsletter-form, form[action*="notify"], form[action*="subscribe"]') : null;
+  if (!form) return;
+  
+  e.preventDefault();
+  e.stopImmediatePropagation();
+
+  const submitBtn = form.querySelector('button[type="submit"]') || form.querySelector('button');
+  const emailInput = form.querySelector('input[type="email"]') || form.querySelector('input[name="email"]');
+  const feedbackEl = form.parentElement.querySelector('.newsletter-feedback') || form.querySelector('.newsletter-feedback');
+  const originalBtnText = submitBtn ? submitBtn.innerHTML : 'Submit';
+
+  const emailVal = emailInput ? emailInput.value.trim() : '';
+  if (!emailVal) {
+    if (feedbackEl) {
+      feedbackEl.style.display = 'block';
+      feedbackEl.style.color = '#ef4444';
+      feedbackEl.innerHTML = '❌ Please enter your email address.';
+    }
+    showToast('Please enter your email address.', 'error');
+    return;
+  }
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = 'Subscribing...';
+  }
+
+  const formData = new FormData(form);
+
+  fetch(form.action || '/notify-me', {
+    method: 'POST',
+    body: formData,
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest',
+      'Accept': 'application/json'
+    }
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (feedbackEl) {
+      feedbackEl.style.display = 'block';
+      if (data.success) {
+        feedbackEl.style.color = '#4ade80';
+        feedbackEl.innerHTML = `✅ ${data.message}`;
+        if (emailInput) emailInput.value = '';
+        showToast(data.message, 'success');
+      } else {
+        feedbackEl.style.color = '#ef4444';
+        feedbackEl.innerHTML = `❌ ${data.message || 'Subscription failed.'}`;
+        showToast(data.message || 'Subscription failed.', 'error');
+      }
+    } else {
+      showToast(data.message, data.success ? 'success' : 'error');
+      if (data.success && emailInput) emailInput.value = '';
+    }
+  })
+  .catch(err => {
+    console.error('Newsletter submission error:', err);
+    if (feedbackEl) {
+      feedbackEl.style.display = 'block';
+      feedbackEl.style.color = '#ef4444';
+      feedbackEl.innerHTML = '❌ Something went wrong. Please try again.';
+    }
+    showToast('Something went wrong. Please try again.', 'error');
+  })
+  .finally(() => {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalBtnText;
+    }
+  });
+}, true);
+
+
+
+// Scroll reveal
+const revealEls = document.querySelectorAll('.reveal');
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); revealObserver.unobserve(e.target); } });
+}, { threshold: 0.1 });
+revealEls.forEach(el => revealObserver.observe(el));
+
+// Year for footer
+document.querySelectorAll('.footer-year').forEach(el => el.textContent = new Date().getFullYear());
+
+// ── Page Transition (nav — no logo) ───────────────
+const overlay = document.getElementById('page-transition');
+
+// On page load — fade out quickly
+window.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => overlay.classList.remove('enter'), 400);
+});
+
+// Spawn spark particles from center of screen
+function spawnSparks() {
+  const count = 14;
+  for (let i = 0; i < count; i++) {
+    const spark = document.createElement('div');
+    spark.className = 'pt-spark';
+    const angle = (i / count) * 360;
+    const dist  = 60 + Math.random() * 100;
+    const rad   = (angle * Math.PI) / 180;
+    const dx    = Math.cos(rad) * dist;
+    const dy    = Math.sin(rad) * dist;
+    const h     = 6 + Math.random() * 14;
+    spark.style.cssText = `
+      left: calc(50% + ${Math.cos(rad)*8}px);
+      top:  calc(50% + ${Math.sin(rad)*8}px);
+      height: ${h}px;
+      --dx: ${dx}px;
+      --dy: ${dy}px;
+      transform: rotate(${angle + 90}deg);
+      animation-delay: ${Math.random() * 0.1}s;
+      animation-duration: ${0.4 + Math.random() * 0.25}s;
+    `;
+    document.body.appendChild(spark);
+    setTimeout(() => spark.remove(), 800);
+  }
+}
+
+// Internal link clicks → fast panel wipe (no logo)
+document.addEventListener('click', function(e) {
+  const link = e.target.closest('a[href]');
+  if (!link) return;
+  const href = link.getAttribute('href');
+  if (!href) return;
+  if (
+    href.startsWith('http') || href.startsWith('//') ||
+    href.startsWith('#') || href.startsWith('mailto:') ||
+    href.startsWith('tel:') || href.startsWith('javascript:') ||
+    link.target === '_blank' ||
+    link.hasAttribute('data-no-transition') ||
+    e.ctrlKey || e.metaKey || e.shiftKey
+  ) return;
+
+  e.preventDefault();
+  overlay.classList.add('active');
+  overlay.classList.remove('exit');
+  spawnSparks();
+  setTimeout(() => overlay.classList.add('exit'), 280);
+  setTimeout(() => { window.location.href = href; }, 600);
+}, true);
+
+// Form submits → fast wipe ONLY for real page-navigating POST forms
+// Skip AJAX forms (data-ajax, data-client-validated, XHR intercepted forms)
+document.addEventListener('submit', function(e) {
+  const form = e.target;
+  if (!form || !form.tagName || form.tagName.toLowerCase() !== 'form') return;
+  if (
+    form.classList.contains('ajax-newsletter-form') ||
+    form.hasAttribute('data-no-transition') ||
+    form.hasAttribute('data-ajax') ||
+    form.hasAttribute('data-client-validated') ||
+    (form.action && (form.action.includes('notify') || form.action.includes('subscribe'))) ||
+    (form.method && form.method.toLowerCase() === 'get')
+  ) return;
+  overlay.classList.add('active');
+  spawnSparks();
+  setTimeout(() => overlay.classList.add('exit'), 260);
+  // Safety: always reset overlay so it never permanently blocks the page
+  setTimeout(() => {
+    overlay.classList.remove('active', 'exit');
+    overlay.style.pointerEvents = 'none';
+  }, 2000);
+}, true);
+
+// Global safety: reset overlay if it somehow stays active for too long
+setInterval(() => {
+  if (overlay.classList.contains('active')) {
+    // Only reset if more than 3 seconds have passed (DOM was not navigated)
+    overlay._activeSince = overlay._activeSince || Date.now();
+    if (Date.now() - overlay._activeSince > 3000) {
+      overlay.classList.remove('active', 'exit');
+      overlay.style.pointerEvents = 'none';
+      overlay._activeSince = null;
+    }
+  } else {
+    overlay._activeSince = null;
+  }
+}, 500);
+
+
+</script>
+
+<!-- WhatsApp Floating Chat Button -->
+<a href="https://wa.me/919860498749?text={{ 'Hi Vibe Seekers! I would like to know more about your collection.'|urlencode }}"
+   class="whatsapp-float"
+   target="_blank"
+   rel="noopener noreferrer"
+   aria-label="Chat on WhatsApp"
+   title="Chat on WhatsApp">
+  <svg width="30" height="30" viewBox="0 0 24 24" fill="#ffffff">
+    <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2zm.01 18.08c-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.084 8.084 0 0 1-1.25-4.31c0-4.46 3.63-8.09 8.09-8.09 2.16 0 4.19.84 5.72 2.37 1.53 1.53 2.37 3.56 2.37 5.72 0 4.46-3.63 8.09-8.09 8.09zm4.44-6.07c-.24-.12-1.44-.71-1.66-.79-.23-.08-.39-.12-.56.12-.17.24-.65.79-.8 1-.15.21-.3.24-.55.12-.24-.12-1.03-.38-1.96-1.21-.73-.65-1.22-1.45-1.36-1.69-.14-.24-.02-.37.1-.49.11-.11.24-.29.36-.43.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.56-1.34-.77-1.84-.2-.48-.4-.42-.56-.43l-.48-.01c-.16 0-.42.06-.65.3-.23.24-.87.85-.87 2.08 0 1.23.89 2.42 1.02 2.59.12.16 1.75 2.68 4.24 3.76.59.26 1.06.41 1.42.52.6.19 1.14.16 1.57.1.48-.07 1.44-.59 1.64-1.16.2-.57.2-1.06.14-1.16-.06-.1-.22-.16-.46-.28z"/>
+  </svg>
+  <span class="whatsapp-tooltip">Chat with us</span>
+</a>
+
+<style>
+.whatsapp-float {
+  position: fixed;
+  bottom: 26px;
+  right: 26px;
+  width: 56px;
+  height: 56px;
+  background-color: #25D366;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 18px rgba(37, 211, 102, 0.45);
+  z-index: 998;
+  transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.25s ease;
+  text-decoration: none;
+}
+.whatsapp-float:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 24px rgba(37, 211, 102, 0.65);
+}
+.whatsapp-tooltip {
+  position: absolute;
+  right: 68px;
+  background: rgba(18, 18, 24, 0.95);
+  color: #ffffff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(6px);
+  transition: all 0.2s ease;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+.whatsapp-float:hover .whatsapp-tooltip {
+  opacity: 1;
+  transform: translateX(0);
+}
+@media (max-width: 600px) {
+  .whatsapp-float {
+    bottom: 20px;
+    right: 18px;
+    width: 50px;
+    height: 50px;
+  }
+}
+</style>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>

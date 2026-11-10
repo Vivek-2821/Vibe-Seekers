@@ -1,0 +1,83 @@
+{% extends 'admin/base_admin.html' %}
+{% block page_title %}{{ 'Edit Banner' if banner else 'Add Banner' }}{% endblock %}
+{% block breadcrumb %}Admin / Banners / {{ 'Edit' if banner else 'Add' }}{% endblock %}
+{% block topbar_actions %}
+  <a href="{{ url_for('admin.banners') }}" class="btn btn-secondary">← Back to Banners</a>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:640px;">
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">{{ 'Edit Banner #' ~ banner.id if banner else 'New Banner Details' }}</h3>
+    </div>
+    <div class="card-body">
+      <form method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        
+        <div class="form-group">
+          <label class="form-label">Headline / Title</label>
+          <input type="text" name="title" class="form-control" placeholder="e.g. Wear The Vibe" value="{{ banner.title if banner else '' }}">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Subtitle / Description</label>
+          <input type="text" name="subtitle" class="form-control" placeholder="e.g. Curated streetwear for those who dare" value="{{ banner.subtitle if banner else '' }}">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Button Text</label>
+            <input type="text" name="cta_text" class="form-control" placeholder="Shop Now →" value="{{ banner.cta_text if banner else 'Shop Now →' }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Button Destination URL</label>
+            <input type="text" name="cta_url" class="form-control" placeholder="/all-products" value="{{ banner.cta_url if banner else '/all-products' }}">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Desktop Banner Image</label>
+          {% if banner and banner.image_url %}
+          <div style="margin-bottom:12px;">
+            <img src="{{ banner.image_url }}" alt="Current Desktop Banner" style="max-width:100%;height:140px;object-fit:cover;border-radius:8px;border:1px solid #2a2a3a;">
+            <div style="font-size:12px;color:#94a3b8;margin-top:4px;">Current desktop image above. Upload below to replace.</div>
+          </div>
+          {% endif %}
+          <input type="file" name="image" class="form-control" accept="image/*"/>
+          <div class="form-hint">Recommended: 1920×800px landscape (Desktop / Tablet).</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Mobile Banner Image (Optional Portrait)</label>
+          {% if banner and banner.image_url_mobile %}
+          <div style="margin-bottom:12px;">
+            <img src="{{ banner.image_url_mobile }}" alt="Current Mobile Banner" style="max-width:140px;height:180px;object-fit:cover;border-radius:8px;border:1px solid #2a2a3a;">
+            <div style="font-size:12px;color:#94a3b8;margin-top:4px;">Current mobile portrait image above. Upload below to replace.</div>
+          </div>
+          {% endif %}
+          <input type="file" name="image_mobile" class="form-control" accept="image/*"/>
+          <div class="form-hint">Recommended: 1080×1350px or 800×1200px portrait for phones. Falls back to desktop image if left empty.</div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Display Order (0 = first)</label>
+            <input type="number" name="sort_order" class="form-control" value="{{ banner.sort_order if banner else 0 }}"/>
+          </div>
+          <div class="form-group" style="display:flex;align-items:flex-end;">
+            <div class="form-check" style="margin-bottom:8px;">
+              <input type="checkbox" name="is_active" id="is_active" {% if not banner or banner.is_active %}checked{% endif %}/>
+              <label for="is_active" style="cursor:pointer;font-weight:600;">Visible on Storefront</label>
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width:100%;padding:13px;font-size:15px;margin-top:10px;">
+          {{ '💾 Save Changes' if banner else '✅ Create Banner' }}
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

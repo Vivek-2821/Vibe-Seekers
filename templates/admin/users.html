@@ -1,0 +1,55 @@
+{% extends 'admin/base_admin.html' %}
+{% block page_title %}Users{% endblock %}
+{% block breadcrumb %}Admin / Users{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">All Users ({{ users.total }})</h3>
+  </div>
+  <div class="table-responsive">
+    {% if users.items %}
+    <table>
+      <thead>
+        <tr><th>Name</th><th>Email</th><th>Phone</th><th>Orders</th><th>Joined</th><th>Status</th><th>Action</th></tr>
+      </thead>
+      <tbody>
+        {% for u in users.items %}
+        <tr>
+          <td style="font-weight:600;">{{ u.name }}</td>
+          <td style="color:#64748b;">{{ u.email }}</td>
+          <td style="color:#64748b;">{{ u.phone or '—' }}</td>
+          <td>{{ u.orders.count() }}</td>
+          <td style="color:#64748b;font-size:13px;">{{ u.created_at.strftime('%d %b %Y') }}</td>
+          <td>
+            <span class="badge {% if u.is_blocked %}badge-cancelled{% else %}badge-active{% endif %}">
+              {{ 'Blocked' if u.is_blocked else 'Active' }}
+            </span>
+          </td>
+          <td>
+            <form method="POST" action="{{ url_for('admin.toggle_user_block', user_id=u.id) }}" onsubmit="return confirm('Toggle block status?')">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+              <button type="submit" class="btn btn-sm {% if u.is_blocked %}btn-success{% else %}btn-danger{% endif %}">
+                {{ 'Unblock' if u.is_blocked else 'Block' }}
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="padding:60px;text-align:center;color:#64748b;">No users registered yet.</div>
+    {% endif %}
+  </div>
+  {% if users.pages > 1 %}
+  <div style="padding:20px;" class="pagination">
+    {% for p in users.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+      {% if p %}
+        <a href="{{ url_for('admin.users', page=p) }}" class="page-link {% if p == users.page %}active{% endif %}">{{ p }}</a>
+      {% else %}<span style="color:#64748b;">…</span>{% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

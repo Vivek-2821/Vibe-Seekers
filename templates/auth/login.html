@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="section-subtitle mb-1">Welcome Back</div>
+    <h1 class="auth-title">Sign In</h1>
+    <p class="auth-sub">New here? <a href="{{ url_for('auth.register') }}" style="color:var(--accent)">Create an account</a> and get 10% off your first order.</p>
+
+    <form method="POST" action="{{ url_for('auth.login') }}" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <!-- Bot Honeypot field (hidden from real users) -->
+      <div style="display:none;" aria-hidden="true">
+        <input type="text" name="website_url" id="login_website_url" tabindex="-1" autocomplete="off">
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label" for="email">Email Address</label>
+        <input type="email" id="email" name="email" class="form-control" placeholder="you@example.com" required autocomplete="email">
+      </div>
+      
+      <div class="form-group">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <label class="form-label" for="password" style="margin:0">Password</label>
+          <a href="{{ url_for('auth.forgot_password') }}" style="font-size:.78rem;color:var(--text-muted)">Forgot?</a>
+        </div>
+        <div style="position:relative">
+          <input type="password" id="password" name="password" class="form-control" placeholder="••••••••" required autocomplete="current-password">
+          <button type="button" onclick="togglePwd('password')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:.8rem">Show</button>
+        </div>
+      </div>
+      
+      <label class="form-check mb-3">
+        <input type="checkbox" name="remember"> <span style="font-size:.85rem;color:var(--text-muted)">Remember me</span>
+      </label>
+      
+      <button type="submit" class="btn btn-primary btn-full">Sign In</button>
+    </form>
+
+    <div class="auth-footer-text">
+      Don't have an account? <a href="{{ url_for('auth.register') }}">Sign up free</a>
+    </div>
+    <div class="auth-footer-text" style="margin-top:8px">
+      <a href="{{ url_for('admin.login') }}" style="font-size:.78rem;color:var(--text-dim)">Admin login →</a>
+    </div>
+  </div>
+</div>
+<script>function togglePwd(id){const i=document.getElementById(id);i.type=i.type==='password'?'text':'password'}</script>
+{% endblock %}
+{% block no_footer %}{% endblock %}

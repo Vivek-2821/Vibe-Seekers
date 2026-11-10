@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="min-height:60vh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:60px 24px;">
+  <div style="font-size:80px; margin-bottom:24px;">⚡</div>
+  <h1 style="font-size:72px; font-weight:900; background:linear-gradient(135deg,#f59e0b,#fbbf24); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin-bottom:8px;">500</h1>
+  <h2 style="font-size:24px; font-weight:700; color:#e2e8f0; margin-bottom:16px;">Something Went Wrong</h2>
+  <p style="color:#94a3b8; max-width:400px; margin-bottom:32px; font-size:16px;">Our server hit a snag. We're working on it. Please try again in a moment.</p>
+  <a href="{{ url_for('main.index') }}" style="background:linear-gradient(135deg,#7c3aed,#a855f7); color:#fff; padding:14px 28px; border-radius:12px; text-decoration:none; font-weight:700;">Go Home</a>
+</div>
+{% endblock %}

@@ -1,0 +1,108 @@
+{% extends 'admin/base_admin.html' %}
+{% block page_title %}Products{% endblock %}
+{% block breadcrumb %}Admin / Products{% endblock %}
+{% block topbar_actions %}
+  <a href="{{ url_for('admin.add_product') }}" class="btn btn-primary">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:16px;height:16px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Add Product
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">All Products ({{ products.total }})</h3>
+    <form method="GET" style="display:flex;gap:8px;">
+      <input type="text" name="q" class="form-control" style="width:220px;" placeholder="Search products…" value="{{ request.args.get('q','') }}"/>
+      <button type="submit" class="btn btn-secondary">Search</button>
+    </form>
+  </div>
+  <div class="table-responsive">
+    {% if products.items %}
+    <table>
+      <thead>
+        <tr>
+          <th>Image</th>
+          <th>Name</th>
+          <th>Category</th>
+          <th>Price</th>
+          <th>Stock</th>
+          <th>Status</th>
+          <th>Flags</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in products.items %}
+        <tr>
+          <td>
+            {% if p.primary_image %}
+              <img src="{{ p.primary_image }}" alt="{{ p.name }}" class="img-thumb"/>
+            {% else %}
+              <div style="width:48px;height:48px;background:#1a1a24;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:20px;">👕</div>
+            {% endif %}
+          </td>
+          <td>
+            <div style="font-weight:600;">{{ p.name }}</div>
+            {% if p.sku %}<div style="font-size:12px;color:#64748b;">SKU: {{ p.sku }}</div>{% endif %}
+          </td>
+          <td style="color:#64748b;">{{ p.category.name if p.category else '—' }}</td>
+          <td>
+            <div style="font-weight:700;">₹{{ "{:,.0f}".format(p.discounted_price) }}</div>
+            {% if p.discount_percent %}<div style="font-size:12px;color:#64748b;text-decoration:line-through;">₹{{ "{:,.0f}".format(p.price) }}</div>{% endif %}
+          </td>
+          <td>
+            <span style="color: {% if p.stock == 0 %}#ef4444{% elif p.stock <= 5 %}#f59e0b{% else %}#4ade80{% endif %};font-weight:700;">{{ p.stock }}</span>
+          </td>
+          <td>
+            <span class="badge {% if p.is_active %}badge-active{% else %}badge-inactive{% endif %}">
+              {{ 'Active' if p.is_active else 'Hidden' }}
+            </span>
+          </td>
+          <td>
+            {% if p.is_new_arrival %}<span class="badge" style="background:rgba(59,130,246,0.15);color:#60a5fa;margin:2px;">New</span>{% endif %}
+            {% if p.is_trending %}<span class="badge" style="background:rgba(239,68,68,0.15);color:#f87171;margin:2px;">🔥</span>{% endif %}
+            {% if p.is_best_selling %}<span class="badge" style="background:rgba(245,158,11,0.15);color:#fbbf24;margin:2px;">⭐</span>{% endif %}
+          </td>
+          <td>
+            <div style="display:flex;gap:6px;">
+              <a href="{{ url_for('admin.edit_product', product_id=p.id) }}" class="btn btn-sm btn-secondary">Edit</a>
+              <form method="POST" action="{{ url_for('admin.delete_product', product_id=p.id) }}" onsubmit="return confirm('Permanently delete this product? This action cannot be undone.')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <button type="submit" class="btn btn-sm btn-danger" style="background:#ef4444;border-color:#ef4444;color:#fff;">Delete</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="padding:60px;text-align:center;color:#64748b;">
+      <div style="font-size:48px;margin-bottom:16px;">📦</div>
+      <div style="font-size:18px;font-weight:600;margin-bottom:8px;">No products yet</div>
+      <div style="margin-bottom:20px;">Add your first product to start selling.</div>
+      <a href="{{ url_for('admin.add_product') }}" class="btn btn-primary">Add First Product</a>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if products.pages > 1 %}
+  <div style="padding:20px;" class="pagination">
+    {% if products.has_prev %}
+      <a href="{{ url_for('admin.products', page=products.prev_num) }}" class="page-link">← Prev</a>
+    {% endif %}
+    {% for p in products.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+      {% if p %}
+        <a href="{{ url_for('admin.products', page=p) }}" class="page-link {% if p == products.page %}active{% endif %}">{{ p }}</a>
+      {% else %}
+        <span style="color:#64748b;">…</span>
+      {% endif %}
+    {% endfor %}
+    {% if products.has_next %}
+      <a href="{{ url_for('admin.products', page=products.next_num) }}" class="page-link">Next →</a>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

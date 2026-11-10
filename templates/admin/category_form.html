@@ -1,0 +1,53 @@
+{% extends 'admin/base_admin.html' %}
+{% block page_title %}{{ 'Edit Category' if category else 'Add Category' }}{% endblock %}
+{% block breadcrumb %}Admin / Categories / {{ 'Edit' if category else 'Add' }}{% endblock %}
+{% block topbar_actions %}
+  <a href="{{ url_for('admin.categories') }}" class="btn btn-secondary">← Back</a>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:600px;">
+  <div class="card">
+    <div class="card-header"><h3 class="card-title">Category Details</h3></div>
+    <div class="card-body">
+      <form method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <div class="form-group">
+          <label class="form-label">Name *</label>
+          <input type="text" name="name" class="form-control" required value="{{ category.name if category else '' }}" placeholder="e.g. Hoodies"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea name="description" class="form-control">{{ category.description if category else '' }}</textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Sort Order</label>
+            <input type="number" name="sort_order" class="form-control" value="{{ category.sort_order if category else 0 }}"/>
+          </div>
+          <div class="form-group" style="display:flex;align-items:flex-end;">
+            <div class="form-check">
+              <input type="checkbox" name="is_active" id="is_active" {% if not category or category.is_active %}checked{% endif %}/>
+              <label for="is_active">Active</label>
+            </div>
+          </div>
+        </div>
+        {% if category and category.image %}
+        <div class="form-group">
+          <label class="form-label">Current Image</label><br/>
+          <img src="{{ category.image }}" style="width:100px;height:100px;object-fit:cover;border-radius:8px;border:1px solid #2a2a3a;"/>
+        </div>
+        {% endif %}
+        <div class="form-group">
+          <label class="form-label">{{ 'Replace Image' if category and category.image else 'Category Image' }}</label>
+          <input type="file" name="image" class="form-control" accept="image/*"/>
+          <div class="form-hint">Recommended: 600×600px. Shown as thumbnail on homepage.</div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;padding:12px;">
+          {{ '💾 Update Category' if category else '✅ Create Category' }}
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

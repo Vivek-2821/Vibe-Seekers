@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block content %}
+<section style="padding: 80px 24px; max-width: 780px; margin: 0 auto;">
+  <h1 style="font-size: 42px; font-weight: 800; color: #e2e8f0; margin-bottom: 8px;">Shipping Policy</h1>
+  <p style="color: #64748b; font-size: 14px; margin-bottom: 40px;">Last updated: November 2024</p>
+
+  <div style="display: flex; flex-direction: column; gap: 24px; color: #94a3b8; line-height: 1.8; font-size: 15px;">
+    <div style="background: linear-gradient(135deg, rgba(124,58,237,0.15), rgba(168,85,247,0.08)); border: 1px solid rgba(124,58,237,0.3); border-radius: 14px; padding: 28px;">
+      <h2 style="color:#a855f7; font-size:20px; font-weight:700; margin-bottom:8px;">🚚 FREE Shipping</h2>
+      <p>We offer <strong style="color:#e2e8f0;">FREE shipping on all orders above ₹999</strong> across India. No coupon needed — it's automatic at checkout.</p>
+    </div>
+
+    {% set sections = [
+      ('📦 Processing Time', 'Orders are processed within <strong>1–2 business days</strong> after payment confirmation. Orders placed on weekends or public holidays will be processed the next business day.'),
+      ('📅 Delivery Timeline', '<strong>Standard Delivery:</strong> 4–7 business days<br/><strong>Express Delivery:</strong> 2–3 business days (where available)<br/>Delivery times may vary during sale periods, festivals, or due to courier delays.'),
+      ('💰 Shipping Charges', 'Orders below ₹999: ₹79 flat shipping fee<br/>Orders above ₹999: FREE<br/>Express delivery charges are calculated at checkout based on your location.'),
+      ('🗺️ Delivery Locations', 'We ship to all serviceable pin codes across India through our trusted courier partners. Enter your pin code at checkout to confirm serviceability.'),
+      ('🔍 Order Tracking', 'Once shipped, you will receive a tracking number via email or SMS. Use it to track your order on the courier website. You can also view your order status in your account dashboard.'),
+      ('⚡ Cash on Delivery', 'COD is available for orders up to ₹5,000 on serviceable pin codes. Please keep exact change ready at the time of delivery.')
+    ] %}
+    {% for heading, body in sections %}
+    <div style="background: rgba(17,17,24,0.6); border: 1px solid #2a2a3a; border-radius: 14px; padding: 28px;">
+      <h2 style="font-size: 18px; font-weight: 700; color: #e2e8f0; margin-bottom: 12px;">{{ heading }}</h2>
+      <p>{{ body | safe }}</p>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div style="margin-top:40px; padding:28px; background:rgba(124,58,237,0.08); border:1px solid rgba(124,58,237,0.2); border-radius:14px;">
+    <p style="color:#94a3b8;">For shipping enquiries, <a href="{{ url_for('main.contact') }}" style="color:#a855f7;text-decoration:none;font-weight:600;">contact us →</a></p>
+  </div>
+</section>
+{% endblock %}

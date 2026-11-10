@@ -1,0 +1,239 @@
+{% extends 'admin/base_admin.html' %}
+{% block page_title %}Dashboard{% endblock %}
+{% block breadcrumb %}Admin / Dashboard{% endblock %}
+{% block topbar_actions %}
+  <span style="font-size:13px;color:#64748b;">Welcome back, {{ current_user.name }} 👋</span>
+  {% if total_products == 0 %}
+  <form action="{{ url_for('admin.seed_demo_data') }}" method="POST" style="display:inline;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn btn-primary btn-sm" onclick="return confirm('This will add sample categories and products. Continue?')">
+      🌱 Seed Demo Data
+    </button>
+  </form>
+  {% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<!-- Stat Cards -->
+<div class="stats-grid">
+  <div class="stat-card purple">
+    <div class="stat-label">Total Revenue</div>
+    <div class="stat-value">₹{{ "{:,.0f}".format(total_revenue) }}</div>
+    <div class="stat-sub">confirmed + delivered orders</div>
+    <div class="stat-icon">💰</div>
+  </div>
+  <div class="stat-card green">
+    <div class="stat-label">Total Orders</div>
+    <div class="stat-value">{{ total_orders }}</div>
+    <div class="stat-sub">all time</div>
+    <div class="stat-icon">📦</div>
+  </div>
+  <div class="stat-card blue">
+    <div class="stat-label">Registered Users</div>
+    <div class="stat-value">{{ total_users }}</div>
+    <div class="stat-sub">active customers</div>
+    <div class="stat-icon">👥</div>
+  </div>
+  <div class="stat-card orange">
+    <div class="stat-label">Products</div>
+    <div class="stat-value">{{ total_products }}</div>
+    <div class="stat-sub">in catalog</div>
+    <div class="stat-icon">👕</div>
+  </div>
+</div>
+
+{% if unread_messages > 0 %}
+<div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:10px;padding:14px 20px;margin-bottom:24px;display:flex;align-items:center;gap:12px;">
+  <span style="font-size:20px;">📨</span>
+  <span style="color:#fbbf24;font-weight:600;">You have {{ unread_messages }} unread contact message{{ 's' if unread_messages > 1 else '' }}.</span>
+  <a href="{{ url_for('admin.messages') }}" class="btn btn-sm btn-secondary" style="margin-left:auto;">View Messages</a>
+</div>
+{% endif %}
+
+<!-- 7-Day Orders Chart -->
+<div class="card" style="margin-bottom:24px;">
+  <div class="card-header">
+    <h3 class="card-title">📈 Orders – Last 7 Days</h3>
+    <a href="{{ url_for('admin.orders') }}" class="btn btn-sm btn-secondary">View All Orders</a>
+  </div>
+  <div style="padding:24px;">
+    <canvas id="ordersChart" height="80"></canvas>
+  </div>
+</div>
+
+<div class="grid-2" style="gap:24px;margin-bottom:24px;">
+  <!-- Quick Actions -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">⚡ Quick Actions</h3>
+    </div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:10px;">
+      <a href="{{ url_for('admin.add_product') }}" class="btn btn-primary">+ Add New Product</a>
+      <a href="{{ url_for('admin.add_category') }}" class="btn btn-secondary">+ Add Category</a>
+      <a href="{{ url_for('admin.add_coupon') }}" class="btn btn-secondary">+ Create Coupon</a>
+      <a href="{{ url_for('admin.orders') }}" class="btn btn-secondary">📦 Manage Orders</a>
+      {% if total_products == 0 %}
+      <form action="{{ url_for('admin.seed_demo_data') }}" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-success w-100" style="width:100%;" onclick="return confirm('Seed 8 demo products and 5 categories?')">
+          🌱 Load Demo Products
+        </button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if low_stock %}
+  <!-- Low Stock Alert -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">⚠️ Low Stock Alert</h3>
+      <a href="{{ url_for('admin.products') }}" class="btn btn-sm btn-secondary">Manage</a>
+    </div>
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr><th>Product</th><th>SKU</th><th>Stock</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+          {% for p in low_stock %}
+          <tr>
+            <td>{{ p.name }}</td>
+            <td style="color:#64748b;">{{ p.sku or '—' }}</td>
+            <td><span style="color: {% if p.stock == 0 %}#ef4444{% else %}#f59e0b{% endif %};font-weight:700;">{{ p.stock }}</span></td>
+            <td><a href="{{ url_for('admin.edit_product', product_id=p.id) }}" class="btn btn-sm btn-primary">Edit</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <!-- Store Health -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">✅ Store Health</h3>
+    </div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
+        <span style="color:#64748b;font-size:13px;">Products in catalog</span>
+        <span style="font-weight:700;color:{% if total_products > 0 %}#22c55e{% else %}#f59e0b{% endif %};">{{ total_products }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
+        <span style="color:#64748b;font-size:13px;">Total orders</span>
+        <span style="font-weight:700;">{{ total_orders }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
+        <span style="color:#64748b;font-size:13px;">Registered customers</span>
+        <span style="font-weight:700;">{{ total_users }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;">
+        <span style="color:#64748b;font-size:13px;">Unread messages</span>
+        <span style="font-weight:700;color:{% if unread_messages > 0 %}#f59e0b{% else %}#22c55e{% endif %};">{{ unread_messages }}</span>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Recent Orders -->
+<div class="card" style="grid-column: 1 / -1;">
+  <div class="card-header">
+    <h3 class="card-title">Recent Orders</h3>
+    <a href="{{ url_for('admin.orders') }}" class="btn btn-sm btn-secondary">View All</a>
+  </div>
+  <div class="table-responsive">
+    {% if recent_orders %}
+    <table>
+      <thead>
+        <tr>
+          <th>Order #</th>
+          <th>Customer</th>
+          <th>Amount</th>
+          <th>Payment</th>
+          <th>Status</th>
+          <th>Date</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in recent_orders %}
+        <tr>
+          <td style="font-weight:600;color:#a855f7;">#{{ o.order_number }}</td>
+          <td>{{ o.shipping_name }}<br><span style="font-size:12px;color:#64748b;">{{ o.user.email }}</span></td>
+          <td style="font-weight:700;">₹{{ "{:,.0f}".format(o.total) }}</td>
+          <td style="text-transform:uppercase;font-size:12px;">{{ o.payment_method }}</td>
+          <td><span class="badge badge-{{ o.status }}">{{ o.status }}</span></td>
+          <td style="color:#64748b;font-size:13px;">{{ o.created_at.strftime('%d %b %Y') }}</td>
+          <td><a href="{{ url_for('admin.order_detail', order_id=o.id) }}" class="btn btn-sm btn-secondary">View</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="padding:40px;text-align:center;color:#64748b;">No orders yet.</div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const chartData = {{ chart_data|safe }};
+const labels = chartData.map(d => d.date);
+const orders = chartData.map(d => d.count);
+
+const ctx = document.getElementById('ordersChart');
+if (ctx) {
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Orders',
+        data: orders,
+        backgroundColor: 'rgba(124,58,237,0.4)',
+        borderColor: 'rgba(168,85,247,0.9)',
+        borderWidth: 2,
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a1a24',
+          titleColor: '#e2e8f0',
+          bodyColor: '#64748b',
+          borderColor: '#2a2a3a',
+          borderWidth: 1,
+          callbacks: {
+            label: ctx => `Orders: ${ctx.parsed.y}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(42,42,58,0.5)' },
+          ticks: { color: '#64748b', font: { size: 12 } },
+          border: { color: '#2a2a3a' }
+        },
+        y: {
+          grid: { color: 'rgba(42,42,58,0.5)' },
+          ticks: { color: '#64748b', font: { size: 12 }, stepSize: 1 },
+          border: { color: '#2a2a3a' },
+          beginAtZero: true,
+        }
+      }
+    }
+  });
+}
+</script>
+{% endblock %}

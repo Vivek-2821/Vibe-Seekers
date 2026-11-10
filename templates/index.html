@@ -1,0 +1,495 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero">
+  {% if banners %}
+    {% set slide_texts = [
+      {
+        'eyebrow': 'New Season Drop',
+        'title': 'Wear The <em>Vibe</em>',
+        'sub': 'Curated streetwear for those who dare'
+      },
+      {
+        'eyebrow': 'Exclusive Collection',
+        'title': '<em>Street</em> Culture',
+        'sub': 'Bold pieces. Bolder attitude.'
+      },
+      {
+        'eyebrow': 'Limited Edition',
+        'title': 'Define Your <em>Era</em>',
+        'sub': 'Premium fits that speak volumes'
+      },
+      {
+        'eyebrow': 'Fresh Arrivals',
+        'title': 'The <em>Future</em> Is Now',
+        'sub': 'Next-gen streetwear is here'
+      }
+    ] %}
+    {% for banner in banners %}
+    <div class="hero-slide {% if loop.first %}active{% endif %}" data-index="{{ loop.index0 }}">
+      {% if banner.image_url %}
+        <picture>
+          {% if banner.image_url_mobile %}
+          <source media="(max-width: 768px)" srcset="{{ banner.image_url_mobile }}">
+          {% endif %}
+          <img src="{{ banner.image_url }}" alt="{{ banner.title }}" loading="{% if loop.first %}eager{% else %}lazy{% endif %}">
+        </picture>
+      {% else %}
+        <div class="hero-fallback">
+          <div class="hero-fallback-pattern"></div>
+        </div>
+      {% endif %}
+      {# Per-slide cinematic text overlay #}
+      {% set st = slide_texts[loop.index0 % slide_texts|length] %}
+      <div class="hero-slide-text">
+        <div class="hero-slide-eyebrow">{{ st.eyebrow }}</div>
+        <h2 class="hero-slide-title">{{ st.title | safe }}</h2>
+        <p class="hero-slide-sub">{{ st.sub }}</p>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="hero-slide active">
+      <div class="hero-fallback">
+        <div class="hero-fallback-pattern"></div>
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="hero-content">
+    <div class="hero-content-inner">
+      {% if banners and banners|length > 0 and banners[0].image_url %}
+        <div class="hero-ctas" style="margin-top:0">
+          <a href="{{ banners[0].cta_url or url_for('shop.all_products') }}" class="btn btn-primary btn-lg">{{ banners[0].cta_text or 'Shop Now →' }}</a>
+          <a href="{{ url_for('shop.new_arrivals') }}" class="btn btn-outline btn-lg">New Arrivals</a>
+        </div>
+      {% else %}
+        <div class="hero-eyebrow">Welcome to Vibe Seekers</div>
+        <h1 class="hero-title">Wear The <em>Vibe</em></h1>
+        <p class="hero-sub">Curated streetwear for those who dare to be different.</p>
+        <div class="hero-ctas">
+          <a href="{{ url_for('shop.all_products') }}" class="btn btn-primary btn-lg">Shop Now →</a>
+          <a href="{{ url_for('shop.new_arrivals') }}" class="btn btn-outline btn-lg">New Arrivals</a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if banners|length > 1 %}
+  {# Prev / Next arrows #}
+  <button class="hero-arrow hero-arrow-prev" id="heroPrev" aria-label="Previous banner">
+    <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+  </button>
+  <button class="hero-arrow hero-arrow-next" id="heroNext" aria-label="Next banner">
+    <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>
+  </button>
+
+  {# Dots #}
+  <div class="hero-dots">
+    {% for banner in banners %}
+    <button class="hero-dot {% if loop.first %}active{% endif %}" data-slide="{{ loop.index0 }}"></button>
+    {% endfor %}
+  </div>
+
+  {# Progress bar #}
+  <div class="hero-progress">
+    <div class="hero-progress-bar running" id="heroProgressBar" style="--slide-duration:6000ms"></div>
+  </div>
+
+  {# Slide counter #}
+  <div class="hero-counter">
+    <span class="hero-counter-current" id="heroCounterCurrent">01</span>
+    <span class="hero-counter-sep">/</span>
+    <span class="hero-counter-total">{{ '%02d' % banners|length }}</span>
+  </div>
+  {% endif %}
+
+  <!-- Corner Decorations -->
+  <div class="hero-corner hero-corner-tl"></div>
+  <div class="hero-corner hero-corner-tr"></div>
+  <div class="hero-corner hero-corner-bl"></div>
+  <div class="hero-corner hero-corner-br"></div>
+
+  <!-- Live Drop Badge -->
+  <div class="hero-new-drop">
+    <div class="hero-new-drop-dot"></div>
+    <span class="hero-new-drop-text">New Collection Live Now</span>
+    <div class="hero-new-drop-dot"></div>
+  </div>
+
+  <!-- Side Stats Panel -->
+  <div class="hero-stats-panel">
+    <div class="hero-stat-item">
+      <span class="hero-stat-num">{% if stats and stats.total_styles > 0 %}{{ stats.total_styles }}+{% else %}Curated{% endif %}</span>
+      <span class="hero-stat-label">Styles</span>
+    </div>
+    <div class="hero-stat-item">
+      <span class="hero-stat-num">{% if stats and stats.total_customers > 0 %}{{ stats.total_customers }}+{% else %}100%{% endif %}</span>
+      <span class="hero-stat-label">{% if stats and stats.total_customers > 0 %}Customers{% else %}Authentic{% endif %}</span>
+    </div>
+    <div class="hero-stat-item">
+      <span class="hero-stat-num">{% if stats and stats.avg_rating %}{{ stats.avg_rating }}★{% else %}Express{% endif %}</span>
+      <span class="hero-stat-label">{% if stats and stats.avg_rating %}Rated{% else %}Shipping{% endif %}</span>
+    </div>
+  </div>
+
+  <!-- Scrolling Ticker -->
+  <div class="hero-ticker">
+    <div class="hero-ticker-inner">
+      <span class="hero-ticker-item"><span class="hero-ticker-star">✦</span> Free Shipping Over ₹999 <span class="hero-ticker-dot"></span></span>
+      <span class="hero-ticker-item"><span class="hero-ticker-star">✦</span> New Drops Every Week <span class="hero-ticker-dot"></span></span>
+      <span class="hero-ticker-item"><span class="hero-ticker-star">✦</span> Premium Streetwear <span class="hero-ticker-dot"></span></span>
+      <span class="hero-ticker-item"><span class="hero-ticker-star">✦</span> Cash On Delivery Available <span class="hero-ticker-dot"></span></span>
+      <span class="hero-ticker-item"><span class="hero-ticker-star">✦</span> UPI Payments Accepted <span class="hero-ticker-dot"></span></span>
+      <span class="hero-ticker-item"><span class="hero-ticker-star">✦</span> Easy 7-Day Returns <span class="hero-ticker-dot"></span></span>
+      <span class="hero-ticker-item"><span class="hero-ticker-star">✦</span> Free Shipping Over ₹999 <span class="hero-ticker-dot"></span></span>
+      <span class="hero-ticker-item"><span class="hero-ticker-star">✦</span> New Drops Every Week <span class="hero-ticker-dot"></span></span>
+      <span class="hero-ticker-item"><span class="hero-ticker-star">✦</span> Premium Streetwear <span class="hero-ticker-dot"></span></span>
+      <span class="hero-ticker-item"><span class="hero-ticker-star">✦</span> Cash On Delivery Available <span class="hero-ticker-dot"></span></span>
+      <span class="hero-ticker-item"><span class="hero-ticker-star">✦</span> UPI Payments Accepted <span class="hero-ticker-dot"></span></span>
+      <span class="hero-ticker-item"><span class="hero-ticker-star">✦</span> Easy 7-Day Returns <span class="hero-ticker-dot"></span></span>
+    </div>
+  </div>
+</section>
+
+<!-- Top Collections -->
+{% if categories %}
+<section class="categories-section">
+  <div class="container">
+    <div class="section-header centered reveal">
+      <div class="section-subtitle">Browse by Category</div>
+      <h2 class="section-title">Top Collections</h2>
+      <div class="section-divider"></div>
+    </div>
+    <div class="categories-row">
+      {% for cat in categories %}
+      <a href="{{ url_for('shop.category', slug=cat.slug) }}" class="category-item">
+        <div class="cat-circle">
+          {% if cat.image %}
+            <img src="{{ cat.image }}" alt="{{ cat.name }}">
+          {% else %}
+            <span class="cat-circle-placeholder">👗</span>
+          {% endif %}
+        </div>
+        <p class="cat-name">{{ cat.name }}</p>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<!-- Features Strip -->
+<section class="features-strip">
+  <div class="container">
+    <div class="features-grid">
+      <div class="feature-item">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="15" height="13"/><path d="M16 8h4l3 4v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        </div>
+        <div class="feature-text">
+          <span class="feature-title">Free Shipping</span>
+          <span class="feature-sub">On orders above ₹999</span>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        </div>
+        <div class="feature-text">
+          <span class="feature-title">Easy Returns</span>
+          <span class="feature-sub">7-day hassle-free returns</span>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+        </div>
+        <div class="feature-text">
+          <span class="feature-title">COD Available</span>
+          <span class="feature-sub">Pay on delivery, no risk</span>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        </div>
+        <div class="feature-text">
+          <span class="feature-title">Premium Quality</span>
+          <span class="feature-sub">Curated streetwear only</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- New Arrivals -->
+<section class="section">
+  <div class="container">
+    <div class="flex-between section-header reveal">
+      <div>
+        <div class="section-subtitle">Just Dropped</div>
+        <h2 class="section-title">New Arrivals</h2>
+      </div>
+      <a href="{{ url_for('shop.new_arrivals') }}" class="btn btn-outline">View All</a>
+    </div>
+
+    {% if new_arrivals %}
+    <div class="grid-4">
+      {% for product in new_arrivals %}
+      {% include 'partials/product_card.html' %}
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state reveal">
+      <div class="empty-state-icon">✨</div>
+      <h3>New drops coming soon</h3>
+      <p>We're curating something special. Enter your email to get early VIP access the moment our new collection drops.</p>
+      <form action="{{ url_for('main.notify_me') }}" method="POST" class="ajax-newsletter-form" data-no-transition data-ajax style="margin:20px auto 0;max-width:460px;width:100%;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="email" name="email" placeholder="Enter your email to get notified…" required style="flex:1;min-width:220px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.2);padding:13px 18px;border-radius:10px;color:#fff;font-size:14px;outline:none;">
+        <button type="submit" class="btn btn-primary" style="padding:13px 24px;border-radius:10px;white-space:nowrap;font-size:14px;cursor:pointer;">Get Notified</button>
+      </form>
+      <div class="newsletter-feedback" style="margin-top:14px;font-size:14px;display:none;font-weight:500;"></div>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<!-- Trending -->
+<section class="section" style="background:var(--bg-soft);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+  <div class="container">
+    <div class="flex-between section-header reveal">
+      <div>
+        <div class="section-subtitle">What's Hot</div>
+        <h2 class="section-title">Trending Now</h2>
+      </div>
+      <a href="{{ url_for('shop.trending') }}" class="btn btn-outline">View All</a>
+    </div>
+
+    {% if trending %}
+    <div class="grid-4">
+      {% for product in trending %}
+      {% include 'partials/product_card.html' %}
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state reveal">
+      <div class="empty-state-icon">🔥</div>
+      <h3>Trends on the way</h3>
+      <p>Our buyers are handpicking the next wave of must-have streetwear. Subscribe to get alerted before pieces sell out.</p>
+      <form action="{{ url_for('main.notify_me') }}" method="POST" class="ajax-newsletter-form" data-no-transition data-ajax style="margin:20px auto 0;max-width:460px;width:100%;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="email" name="email" placeholder="Enter your email for trend alerts…" required style="flex:1;min-width:220px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.2);padding:13px 18px;border-radius:10px;color:#fff;font-size:14px;outline:none;">
+        <button type="submit" class="btn btn-primary" style="padding:13px 24px;border-radius:10px;white-space:nowrap;font-size:14px;cursor:pointer;">Get Notified</button>
+      </form>
+      <div class="newsletter-feedback" style="margin-top:14px;font-size:14px;display:none;font-weight:500;"></div>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<!-- Best Selling -->
+<section class="section">
+  <div class="container">
+    <div class="flex-between section-header reveal">
+      <div>
+        <div class="section-subtitle">Community Favorites</div>
+        <h2 class="section-title">Best Selling</h2>
+      </div>
+      <a href="{{ url_for('shop.best_selling') }}" class="btn btn-outline">View All</a>
+    </div>
+
+    {% if best_selling %}
+    <div class="grid-4">
+      {% for product in best_selling %}
+      {% include 'partials/product_card.html' %}
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state reveal">
+      <div class="empty-state-icon">⭐</div>
+      <h3>Building our bestseller list</h3>
+      <p>Every bestseller starts with a first sale. Be among the first to shop our curated collection when it launches.</p>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<!-- Brand Story -->
+<section class="brand-story">
+  <div class="container">
+    <div class="brand-story-inner">
+      <div class="brand-story-text reveal">
+        <div class="section-subtitle">Our Story</div>
+        <h2>Fashion is a<br><em>feeling</em>, not a rule.</h2>
+        <p>Vibe Seekers was born from a simple belief: that what you wear is an extension of who you are. We don't follow trends — we uncover the ones worth wearing.</p>
+        <p>Every piece we carry is chosen with intention. Quality that holds up. Styles that stand out. Prices that don't punish you for having taste.</p>
+        <a href="{{ url_for('main.about') }}" class="btn btn-outline mt-3" style="display:inline-flex">Read Our Story</a>
+      </div>
+      <div class="brand-story-visual reveal">
+        <div class="brand-3d-card">
+          <div class="brand-3d-inner">
+            <div class="brand-3d-vs">VS</div>
+            <p class="brand-3d-tagline">"Find your vibe.<br>Live your truth."</p>
+          </div>
+        </div>
+        <div class="brand-story-accent"></div>
+        <div class="brand-story-accent2"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Newsletter -->
+<section class="newsletter-section" id="newsletter">
+  <div class="container">
+    <div class="newsletter-inner reveal">
+      <div class="section-subtitle">Stay in the loop</div>
+      <h2>Get First Access</h2>
+      <p>Subscribe and be the first to know about new drops, exclusive offers, and style inspiration. Unsubscribe anytime.</p>
+      <form action="{{ url_for('main.notify_me') }}" method="POST" class="newsletter-form ajax-newsletter-form" data-no-transition data-ajax>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="email" name="email" placeholder="your@email.com" required>
+        <button type="submit">Subscribe</button>
+      </form>
+      <div class="newsletter-feedback" style="margin-top:16px;font-size:15px;display:none;font-weight:500;"></div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── 3D Cinematic Banner Slider ──────────────────────────────
+(function() {
+  const SLIDE_DURATION = 6000; // ms — auto-advance every 6 sec
+  const ANIM_DURATION  = 1100; // ms — must match CSS animation duration
+
+  const slides   = Array.from(document.querySelectorAll('.hero-slide'));
+  const dots     = Array.from(document.querySelectorAll('.hero-dot'));
+  const progressBar = document.getElementById('heroProgressBar');
+  const counterEl   = document.getElementById('heroCounterCurrent');
+  const prevBtn  = document.getElementById('heroPrev');
+  const nextBtn  = document.getElementById('heroNext');
+
+  if (slides.length < 2) return;
+
+  let current   = 0;
+  let isAnimating = false;
+  let timer       = null;
+
+  function pad(n) { return String(n + 1).padStart(2, '0'); }
+
+  function resetProgress() {
+    if (!progressBar) return;
+    progressBar.classList.remove('running');
+    // Force reflow to restart animation
+    void progressBar.offsetWidth;
+    progressBar.classList.add('running');
+  }
+
+  function goTo(next, direction) {
+    if (isAnimating || next === current) return;
+    isAnimating = true;
+
+    const prev = current;
+    const prevSlide = slides[prev];
+    const nextSlide = slides[next];
+
+    // Remove active from old, add leaving
+    prevSlide.classList.remove('active');
+    prevSlide.classList.add('leaving');
+
+    // Set entering on new slide
+    nextSlide.classList.add('entering');
+
+    // After entering animation finishes, swap to active state
+    setTimeout(function() {
+      prevSlide.classList.remove('leaving');
+      nextSlide.classList.remove('entering');
+      nextSlide.classList.add('active');
+
+      // Update dots
+      dots.forEach(function(d, i) {
+        d.classList.toggle('active', i === next);
+      });
+
+      // Update counter — re-trigger flash animation
+      if (counterEl) {
+        counterEl.style.animation = 'none';
+        void counterEl.offsetWidth;
+        counterEl.style.animation = '';
+        counterEl.textContent = pad(next);
+      }
+
+      current = next;
+      isAnimating = false;
+      resetProgress();
+    }, ANIM_DURATION);
+  }
+
+  function next() { goTo((current + 1) % slides.length, 1); }
+  function prev() { goTo((current - 1 + slides.length) % slides.length, -1); }
+
+  function startTimer() {
+    clearInterval(timer);
+    timer = setInterval(next, SLIDE_DURATION);
+  }
+
+  // Dot clicks
+  dots.forEach(function(d, i) {
+    d.addEventListener('click', function() {
+      clearInterval(timer);
+      goTo(i, i > current ? 1 : -1);
+      startTimer();
+    });
+  });
+
+  // Arrow clicks
+  if (prevBtn) prevBtn.addEventListener('click', function() { clearInterval(timer); prev(); startTimer(); });
+  if (nextBtn) nextBtn.addEventListener('click', function() { clearInterval(timer); next(); startTimer(); });
+
+  // Touch swipe support
+  var touchStartX = 0;
+  document.querySelector('.hero').addEventListener('touchstart', function(e) {
+    touchStartX = e.changedTouches[0].clientX;
+  }, { passive: true });
+  document.querySelector('.hero').addEventListener('touchend', function(e) {
+    var dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 50) {
+      clearInterval(timer);
+      dx > 0 ? prev() : next();
+      startTimer();
+    }
+  }, { passive: true });
+
+  // Pause on hover
+  document.querySelector('.hero').addEventListener('mouseenter', function() { clearInterval(timer); });
+  document.querySelector('.hero').addEventListener('mouseleave', function() { startTimer(); });
+
+  // Kick off
+  resetProgress();
+  startTimer();
+}());
+
+// ── VS Brand Card — one-time neon slam animation on scroll ──
+(function() {
+  const vsEl       = document.querySelector('.brand-3d-vs');
+  const taglineEl  = document.querySelector('.brand-3d-tagline');
+  if (!vsEl) return;
+
+  const observer = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting) {
+        vsEl.classList.add('vs-animate');
+        if (taglineEl) taglineEl.classList.add('vs-animate');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.35 });
+
+  observer.observe(vsEl);
+}());
+</script>
+{% endblock %}

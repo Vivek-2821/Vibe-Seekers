@@ -1,0 +1,30 @@
+{% extends "user/base_user.html" %}
+{% block user_content %}
+<div class="flex-between mb-3">
+  <h1 style="font-family:var(--font-display);font-size:2rem;font-weight:300">My Addresses</h1>
+  <a href="{{ url_for('user.add_address') }}" class="btn btn-outline btn-sm">+ Add Address</a>
+</div>
+{% if addresses %}
+<div class="grid-2">
+{% for addr in addresses %}
+<div style="background:var(--bg-card);border:1px solid {% if addr.is_default %}var(--accent){% else %}var(--border){% endif %};border-radius:var(--radius-lg);padding:24px;position:relative">
+  {% if addr.is_default %}<span class="badge-label badge-new" style="position:absolute;top:16px;right:16px">Default</span>{% endif %}
+  <p style="font-weight:600;margin-bottom:6px">{{ addr.full_name }}</p>
+  <p style="font-size:.88rem;color:var(--text-muted);line-height:1.7">
+    {{ addr.address_line1 }}{% if addr.address_line2 %}, {{ addr.address_line2 }}{% endif %}<br>
+    {{ addr.city }}, {{ addr.state }} – {{ addr.pincode }}<br>
+    {{ addr.phone }}
+  </p>
+  <div style="margin-top:16px;display:flex;gap:10px">
+    <form method="POST" action="{{ url_for('user.delete_address', addr_id=addr.id) }}" onsubmit="return confirm('Delete this address?')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--error)">Delete</button>
+    </form>
+  </div>
+</div>
+{% endfor %}
+</div>
+{% else %}
+<div class="empty-state"><div class="empty-state-icon">📍</div><h3>No saved addresses</h3><p>Add an address to speed up checkout.</p><a href="{{ url_for('user.add_address') }}" class="btn btn-primary mt-2" style="display:inline-flex">Add Address</a></div>
+{% endif %}
+{% endblock %}

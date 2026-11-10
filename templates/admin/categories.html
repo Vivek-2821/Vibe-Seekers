@@ -1,0 +1,50 @@
+{% extends 'admin/base_admin.html' %}
+{% block page_title %}Categories{% endblock %}
+{% block breadcrumb %}Admin / Categories{% endblock %}
+{% block topbar_actions %}
+  <a href="{{ url_for('admin.add_category') }}" class="btn btn-primary">+ Add Category</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="table-responsive">
+    {% if categories %}
+    <table>
+      <thead>
+        <tr><th>Image</th><th>Name</th><th>Slug</th><th>Sort</th><th>Status</th><th>Products</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for c in categories %}
+        <tr>
+          <td>
+            {% if c.image %}<img src="{{ c.image }}" class="img-thumb"/>
+            {% else %}<div style="width:48px;height:48px;background:#1a1a24;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#64748b;">📁</div>{% endif %}
+          </td>
+          <td style="font-weight:600;">{{ c.name }}</td>
+          <td style="color:#64748b;font-size:13px;">{{ c.slug }}</td>
+          <td>{{ c.sort_order }}</td>
+          <td><span class="badge {% if c.is_active %}badge-active{% else %}badge-inactive{% endif %}">{{ 'Active' if c.is_active else 'Hidden' }}</span></td>
+          <td>{{ c.products.count() }}</td>
+          <td>
+            <div style="display:flex;gap:6px;">
+              <a href="{{ url_for('admin.edit_category', cat_id=c.id) }}" class="btn btn-sm btn-secondary">Edit</a>
+              <form method="POST" action="{{ url_for('admin.delete_category', cat_id=c.id) }}" onsubmit="return confirm('Permanently delete this category? Products in this category will become uncategorized.')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <button type="submit" class="btn btn-sm btn-danger" style="background:#ef4444;border-color:#ef4444;color:#fff;">Delete</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="padding:60px;text-align:center;color:#64748b;">
+      <div style="font-size:48px;margin-bottom:16px;">📂</div>
+      <div style="font-size:18px;font-weight:600;margin-bottom:8px;">No categories yet</div>
+      <a href="{{ url_for('admin.add_category') }}" class="btn btn-primary">Add First Category</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,207 @@
+{% extends 'admin/base_admin.html' %}
+{% block page_title %}Demo Images{% endblock %}
+{% block breadcrumb %}Admin / Demo Images{% endblock %}
+{% block topbar_actions %}
+  <form method="POST" action="{{ url_for('admin.seed_demo_data') }}" onsubmit="return confirm('Seed demo products, images and banners?')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+    <button type="submit" class="btn btn-primary" id="btn-seed-demo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M12 2a10 10 0 100 20A10 10 0 0012 2zm0 0v4m0 14v-4m10-6h-4M6 12H2m15.07-7.07l-2.83 2.83M8.76 15.24l-2.83 2.83M18.36 18.36l-2.83-2.83M8.76 8.76L5.93 5.93"/></svg>
+      Seed Demo Data
+    </button>
+  </form>
+  <form method="POST" action="{{ url_for('admin.clear_all_demo_images') }}" onsubmit="return confirm('⚠️ This will DELETE all product images and banners. Continue?')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+    <button type="submit" class="btn btn-danger" id="btn-clear-all">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M3 6h18M19 6l-1 14H6L5 6m5 0V4h4v2"/></svg>
+      Clear All Images
+    </button>
+  </form>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .demo-section { margin-bottom: 40px; }
+  .demo-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .demo-section-title { font-size: 18px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 10px; }
+  .demo-count { background: rgba(124,58,237,0.15); color: var(--accent2); font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+
+  .img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
+  .img-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .img-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(124,58,237,0.15); }
+  .img-card-thumb {
+    width: 100%;
+    aspect-ratio: 4/3;
+    object-fit: cover;
+    display: block;
+    background: var(--surface2);
+  }
+  .img-card-thumb-placeholder {
+    width: 100%; aspect-ratio: 4/3;
+    background: linear-gradient(135deg, var(--surface2), var(--bg));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px;
+  }
+  .img-card-body { padding: 14px 16px; }
+  .img-card-label { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .img-card-sub { font-size: 11px; color: var(--muted); margin-bottom: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .img-card-actions { display: flex; gap: 8px; }
+  .img-card-badge { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); color: #fff; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 20px; letter-spacing: 0.5px; }
+  .img-card-badge.primary { background: rgba(124,58,237,0.85); }
+  .img-card-badge.banner { background: rgba(245,158,11,0.85); }
+
+  .banner-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+  .banner-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: all 0.2s;
+  }
+  .banner-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(124,58,237,0.15); }
+  .banner-img { width: 100%; aspect-ratio: 16/5; object-fit: cover; display: block; }
+  .banner-img-placeholder { width: 100%; aspect-ratio: 16/5; background: linear-gradient(135deg, #1a0533, #0d0d1a); display: flex; align-items: center; justify-content: center; font-size: 40px; }
+  .banner-body { padding: 16px; }
+  .banner-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .banner-sub { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .banner-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .banner-tag { font-size: 11px; background: var(--surface2); border: 1px solid var(--border); padding: 3px 10px; border-radius: 20px; color: var(--text); }
+
+  .empty-demo { padding: 60px; text-align: center; color: var(--muted); }
+  .empty-demo-icon { font-size: 56px; margin-bottom: 16px; }
+  .empty-demo-title { font-size: 18px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+  .empty-demo-text { font-size: 14px; margin-bottom: 24px; }
+
+  .info-box { background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); border-radius: 10px; padding: 16px 20px; margin-bottom: 32px; display: flex; gap: 12px; align-items: flex-start; }
+  .info-box-icon { font-size: 20px; flex-shrink: 0; }
+  .info-box-text { font-size: 13px; color: #93c5fd; line-height: 1.6; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="info-box">
+  <div class="info-box-icon">💡</div>
+  <div class="info-box-text">
+    <strong>Demo Images Manager.</strong> Use <strong>Seed Demo Data</strong> to auto-populate products with AI-generated images and hero banners.
+    You can individually remove any product image or banner below, or use <strong>Clear All Images</strong> to wipe them in one go.
+    Removing an image only removes the database reference — the actual file stays on disk.
+  </div>
+</div>
+
+<!-- ── Hero Banners ── -->
+<div class="demo-section">
+  <div class="demo-section-header">
+    <div class="demo-section-title">
+      🖼️ Hero Banners
+      <span class="demo-count">{{ banners|length }} banner{{ 's' if banners|length != 1 else '' }}</span>
+    </div>
+    <a href="{{ url_for('admin.add_banner') }}" class="btn btn-secondary btn-sm">+ Add Banner</a>
+  </div>
+
+  {% if banners %}
+  <div class="banner-grid">
+    {% for b in banners %}
+    <div class="banner-card">
+      {% if b.image_url %}
+        <img src="{{ b.image_url }}" class="banner-img" alt="{{ b.title }}">
+      {% else %}
+        <div class="banner-img-placeholder">🌄</div>
+      {% endif %}
+      <div class="banner-body">
+        <div class="banner-title">{{ b.title or '(Untitled)' }}</div>
+        <div class="banner-sub">{{ b.subtitle or '—' }}</div>
+        <div class="banner-meta">
+          <span class="banner-tag">Sort: {{ b.sort_order }}</span>
+          <span class="banner-tag" style="color:{% if b.is_active %}#4ade80{% else %}#f87171{% endif %};">
+            {{ '● Active' if b.is_active else '○ Hidden' }}
+          </span>
+          {% if b.cta_text %}
+          <span class="banner-tag">CTA: {{ b.cta_text }}</span>
+          {% endif %}
+        </div>
+        <div style="display:flex;gap:8px;">
+          <a href="{{ url_for('admin.banners') }}" class="btn btn-sm btn-secondary">Manage</a>
+          <form method="POST" action="{{ url_for('admin.delete_demo_banner', banner_id=b.id) }}"
+                onsubmit="return confirm('Remove this banner?')" style="margin:0;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <button type="submit" class="btn btn-sm btn-danger">Remove</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card">
+    <div class="empty-demo">
+      <div class="empty-demo-icon">🖼️</div>
+      <div class="empty-demo-title">No banners yet</div>
+      <div class="empty-demo-text">Click <strong>Seed Demo Data</strong> above to auto-add demo hero banners, or add one manually.</div>
+      <a href="{{ url_for('admin.add_banner') }}" class="btn btn-primary">Add Banner Manually</a>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- ── Product Images ── -->
+<div class="demo-section">
+  <div class="demo-section-header">
+    <div class="demo-section-title">
+      🛍️ Product Images
+      <span class="demo-count">{{ product_images|length }} image{{ 's' if product_images|length != 1 else '' }}</span>
+    </div>
+    <a href="{{ url_for('admin.products') }}" class="btn btn-secondary btn-sm">View Products</a>
+  </div>
+
+  {% if product_images %}
+  <div class="img-grid">
+    {% for img, product in product_images %}
+    <div class="img-card">
+      {% if img.is_primary %}<span class="img-card-badge primary">PRIMARY</span>{% endif %}
+      {% if img.image_url %}
+        <img src="{{ img.image_url }}" class="img-card-thumb" alt="{{ img.alt_text or product.name }}">
+      {% else %}
+        <div class="img-card-thumb-placeholder">👕</div>
+      {% endif %}
+      <div class="img-card-body">
+        <div class="img-card-label">{{ product.name }}</div>
+        <div class="img-card-sub">
+          {% if img.alt_text %}{{ img.alt_text }}{% else %}{{ img.image_url | truncate(40) }}{% endif %}
+        </div>
+        <div class="img-card-actions">
+          <a href="{{ url_for('admin.edit_product', product_id=product.id) }}" class="btn btn-sm btn-secondary">Edit Product</a>
+          <form method="POST" action="{{ url_for('admin.delete_demo_product_image', image_id=img.id) }}"
+                onsubmit="return confirm('Remove this image from {{ product.name }}?')" style="margin:0;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <button type="submit" class="btn btn-sm btn-danger" title="Remove image">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M3 6h18M19 6l-1 14H6L5 6m5 0V4h4v2"/></svg>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card">
+    <div class="empty-demo">
+      <div class="empty-demo-icon">📦</div>
+      <div class="empty-demo-title">No product images yet</div>
+      <div class="empty-demo-text">Seed demo data to auto-attach images to products, or upload images manually when editing a product.</div>
+      <form method="POST" action="{{ url_for('admin.seed_demo_data') }}" style="display:inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <button type="submit" class="btn btn-primary">Seed Demo Data Now</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

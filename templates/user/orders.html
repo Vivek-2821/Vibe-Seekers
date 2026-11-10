@@ -1,0 +1,38 @@
+{% extends "user/base_user.html" %}
+{% block user_content %}
+<h1 style="font-family:var(--font-display);font-size:2rem;font-weight:300;margin-bottom:32px">My Orders</h1>
+{% if orders %}
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden">
+  <table class="admin-table">
+    <thead><tr><th>Order #</th><th>Date</th><th>Items</th><th>Payment</th><th>Status</th><th>Total</th><th></th></tr></thead>
+    <tbody>
+    {% for order in orders %}
+    <tr>
+      <td><strong>{{ order.order_number }}</strong></td>
+      <td style="color:var(--text-muted);font-size:.85rem">{{ order.created_at.strftime('%d %b %Y') }}</td>
+      <td style="font-size:.85rem">{{ order.items.count() }} item{{ 's' if order.items.count() != 1 }}</td>
+      <td style="font-size:.85rem;text-transform:capitalize">{{ order.payment_method }}</td>
+      <td>
+        <span class="status-pill status-{{ order.status }}">{{ order.status|title }}</span>
+        {% if order.awb_code %}
+        <div style="margin-top:6px;font-size:.78rem">
+          <span style="color:var(--text-muted)">Shipment:</span>
+          <strong style="color:#34d399;text-transform:capitalize">{{ order.shipment_status or 'Shipped' }}</strong>
+          <br>
+          <a href="{{ order.tracking_url or 'https://shiprocket.co/tracking/' + order.awb_code }}" target="_blank" rel="noopener noreferrer" style="color:#38bdf8;text-decoration:underline;font-size:.75rem">
+            Track #{{ order.awb_code }} ↗
+          </a>
+        </div>
+        {% endif %}
+      </td>
+      <td style="font-weight:600">₹{{ '%.0f'|format(order.total) }}</td>
+      <td><a href="{{ url_for('user.order_detail', order_number=order.order_number) }}" style="color:var(--accent);font-size:.82rem">View →</a></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state"><div class="empty-state-icon">📦</div><h3>No orders yet</h3><p>When you place an order, it will appear here.</p><a href="{{ url_for('shop.all_products') }}" class="btn btn-primary mt-2" style="display:inline-flex">Start Shopping</a></div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="min-height:60vh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:60px 24px;">
+  <div style="font-size:100px; margin-bottom:24px; line-height:1;">🌌</div>
+  <h1 style="font-size:72px; font-weight:900; background:linear-gradient(135deg,#7c3aed,#a855f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin-bottom:8px;">404</h1>
+  <h2 style="font-size:24px; font-weight:700; color:#e2e8f0; margin-bottom:16px;">Page Not Found</h2>
+  <p style="color:#94a3b8; max-width:400px; margin-bottom:32px; font-size:16px;">Looks like this page went on a vibe hunt and never came back. Let's get you home.</p>
+  <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
+    <a href="{{ url_for('main.index') }}" style="background:linear-gradient(135deg,#7c3aed,#a855f7); color:#fff; padding:14px 28px; border-radius:12px; text-decoration:none; font-weight:700;">Go Home</a>
+    <a href="{{ url_for('shop.all_products') }}" style="background:rgba(124,58,237,0.15); border:1px solid rgba(124,58,237,0.3); color:#a855f7; padding:14px 28px; border-radius:12px; text-decoration:none; font-weight:700;">Shop Now</a>
+  </div>
+</div>
+{% endblock %}

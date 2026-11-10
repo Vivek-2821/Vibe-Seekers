@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}{{ title or 'Admin – Vibe Seekers' }}{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #111118;
+      --surface2: #1a1a24;
+      --border: #2a2a3a;
+      --accent: #7c3aed;
+      --accent2: #a855f7;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --info: #3b82f6;
+      --sidebar-w: 260px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: var(--sidebar-w); background: var(--surface); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; z-index: 100;
+      overflow-y: auto;
+    }
+    .sidebar-brand {
+      padding: 24px 20px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 12px;
+    }
+    .brand-icon {
+      width: 40px; height: 40px; background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 10px; display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 700; color: #fff;
+    }
+    .brand-text { font-size: 15px; font-weight: 700; color: var(--text); }
+    .brand-sub { font-size: 11px; color: var(--muted); }
+
+    .nav-section { padding: 16px 12px 8px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 20px; text-decoration: none; color: var(--muted); font-size: 14px; font-weight: 500; border-radius: 8px; margin: 2px 8px; transition: all 0.2s; }
+    .nav-item:hover, .nav-item.active { background: rgba(124,58,237,0.15); color: var(--accent2); }
+    .nav-item.active { border-left: 3px solid var(--accent); }
+    .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+    .nav-badge { margin-left: auto; background: var(--danger); color: #fff; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
+
+    .sidebar-footer { margin-top: auto; padding: 16px; border-top: 1px solid var(--border); }
+    .sidebar-user { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px; }
+    .user-avatar { width: 36px; height: 36px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #fff; }
+    .user-name { font-size: 13px; font-weight: 600; color: var(--text); }
+    .user-role { font-size: 11px; color: var(--muted); }
+    .logout-btn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 20px; background: none; border: none; color: var(--muted); font-size: 13px; cursor: pointer; border-radius: 8px; margin: 4px 8px; transition: all 0.2s; text-decoration: none; font-family: inherit; }
+    .logout-btn:hover { background: rgba(239,68,68,0.1); color: var(--danger); }
+
+    /* ── Main ── */
+    .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+    .topbar {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 16px 32px; display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 50;
+    }
+    .page-title { font-size: 20px; font-weight: 700; color: var(--text); }
+    .page-breadcrumb { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .topbar-actions { display: flex; align-items: center; gap: 12px; }
+
+    .content { padding: 32px; flex: 1; }
+
+    /* ── Flash messages ── */
+    .flash-container { padding: 0 32px 16px; }
+    .flash { padding: 14px 20px; border-radius: 10px; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .flash-success { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); color: #4ade80; }
+    .flash-error { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #f87171; }
+    .flash-info { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); color: #60a5fa; }
+    .flash-warning { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); color: #fbbf24; }
+
+    /* ── Cards ── */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .card-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .card-title { font-size: 16px; font-weight: 600; color: var(--text); }
+    .card-body { padding: 24px; }
+
+    /* ── Stat Cards ── */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 32px; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; position: relative; overflow: hidden; }
+    .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+    .stat-card.purple::before { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+    .stat-card.green::before { background: linear-gradient(90deg, #16a34a, #22c55e); }
+    .stat-card.blue::before { background: linear-gradient(90deg, #1d4ed8, #3b82f6); }
+    .stat-card.orange::before { background: linear-gradient(90deg, #b45309, #f59e0b); }
+    .stat-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+    .stat-value { font-size: 32px; font-weight: 700; color: var(--text); margin: 8px 0 4px; }
+    .stat-sub { font-size: 12px; color: var(--muted); }
+    .stat-icon { position: absolute; top: 20px; right: 20px; font-size: 28px; opacity: 0.2; }
+
+    /* ── Table ── */
+    .table-responsive { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th { padding: 12px 16px; text-align: left; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); background: var(--surface2); }
+    td { padding: 14px 16px; font-size: 14px; color: var(--text); border-bottom: 1px solid rgba(42,42,58,0.5); vertical-align: middle; }
+    tr:hover td { background: rgba(124,58,237,0.03); }
+    tr:last-child td { border-bottom: none; }
+
+    /* ── Buttons ── */
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; text-decoration: none; transition: all 0.2s; font-family: inherit; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent2); transform: translateY(-1px); }
+    .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent2); }
+    .btn-danger { background: rgba(239,68,68,0.1); color: var(--danger); border: 1px solid rgba(239,68,68,0.2); }
+    .btn-danger:hover { background: var(--danger); color: #fff; }
+    .btn-success { background: rgba(34,197,94,0.1); color: var(--success); border: 1px solid rgba(34,197,94,0.2); }
+    .btn-success:hover { background: var(--success); color: #fff; }
+    .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+    /* ── Badges ── */
+    .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; text-transform: capitalize; }
+    .badge-pending { background: rgba(245,158,11,0.15); color: #fbbf24; }
+    .badge-confirmed { background: rgba(59,130,246,0.15); color: #60a5fa; }
+    .badge-shipped { background: rgba(139,92,246,0.15); color: #a78bfa; }
+    .badge-delivered { background: rgba(34,197,94,0.15); color: #4ade80; }
+    .badge-cancelled { background: rgba(239,68,68,0.15); color: #f87171; }
+    .badge-refunded { background: rgba(107,114,128,0.15); color: #9ca3af; }
+    .badge-active { background: rgba(34,197,94,0.15); color: #4ade80; }
+    .badge-inactive { background: rgba(239,68,68,0.15); color: #f87171; }
+    .badge-paid { background: rgba(34,197,94,0.15); color: #4ade80; }
+
+    /* ── Forms ── */
+    .form-group { margin-bottom: 20px; }
+    .form-label { display: block; font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+    .form-control { width: 100%; padding: 10px 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 14px; font-family: inherit; transition: all 0.2s; }
+    .form-control:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
+    textarea.form-control { min-height: 100px; resize: vertical; }
+    select.form-control { cursor: pointer; }
+    .form-hint { font-size: 12px; color: var(--muted); margin-top: 5px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+    .form-check { display: flex; align-items: center; gap: 10px; padding: 10px 0; }
+    .form-check input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+    .form-check label { font-size: 14px; color: var(--text); cursor: pointer; }
+
+    /* ── Pagination ── */
+    .pagination { display: flex; gap: 6px; align-items: center; margin-top: 24px; justify-content: center; }
+    .page-link { padding: 7px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); text-decoration: none; font-size: 13px; transition: all 0.2s; }
+    .page-link:hover, .page-link.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+    /* ── Utilities ── */
+    .text-muted { color: var(--muted); }
+    .text-success { color: var(--success); }
+    .text-danger { color: var(--danger); }
+    .flex { display: flex; }
+    .flex-between { display: flex; justify-content: space-between; align-items: center; }
+    .gap-2 { gap: 8px; }
+    .gap-3 { gap: 12px; }
+    .mb-4 { margin-bottom: 16px; }
+    .mb-6 { margin-bottom: 24px; }
+    .mt-2 { margin-top: 8px; }
+    .mt-4 { margin-top: 16px; }
+    .w-100 { width: 100%; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; }
+    .img-thumb { width: 48px; height: 48px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
+    .btn-full { width: 100%; justify-content: center; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--surface); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Mobile Admin Styles ── */
+    .admin-mobile-toggle {
+      display: none;
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text);
+      width: 42px;
+      height: 42px;
+      border-radius: 8px;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      margin-right: 12px;
+    }
+    .admin-sidebar-close-btn {
+      display: none;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 20px;
+      margin-left: auto;
+      cursor: pointer;
+      padding: 6px 10px;
+    }
+    .admin-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      z-index: 1040;
+    }
+
+    @media (max-width: 860px) {
+      body {
+        display: block;
+      }
+      body.admin-menu-open {
+        overflow: hidden !important;
+        touch-action: none !important;
+      }
+      .admin-mobile-toggle {
+        display: inline-flex;
+      }
+      .admin-sidebar-close-btn {
+        display: block;
+      }
+      .admin-backdrop.active {
+        display: block;
+      }
+      .sidebar {
+        width: 280px;
+        max-width: 85vw;
+        transform: translateX(-100%);
+        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        z-index: 1050;
+        box-shadow: 4px 0 24px rgba(0,0,0,0.8);
+      }
+      .sidebar.open {
+        transform: translateX(0);
+      }
+      .main {
+        margin-left: 0 !important;
+        width: 100% !important;
+        min-width: 0 !important;
+      }
+      .topbar {
+        padding: 12px 16px;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .topbar-actions {
+        width: 100%;
+        margin-top: 4px;
+        flex-wrap: wrap;
+      }
+      .content {
+        padding: 16px 12px 32px;
+      }
+      .flash-container {
+        padding: 0 12px 12px;
+      }
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 12px !important;
+      }
+      @media (max-width: 480px) {
+        .stats-grid {
+          grid-template-columns: 1fr !important;
+        }
+      }
+      .stat-card {
+        padding: 16px;
+      }
+      .stat-value {
+        font-size: 24px;
+      }
+      .card-header {
+        padding: 14px 16px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+      }
+      .card-header .btn {
+        width: 100%;
+        justify-content: center;
+      }
+      .card-body {
+        padding: 16px 12px;
+      }
+      .form-row, .form-row-3, .grid-2, .grid-3 {
+        grid-template-columns: 1fr !important;
+        gap: 14px !important;
+      }
+      .table-responsive {
+        -webkit-overflow-scrolling: touch;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        margin-bottom: 16px;
+      }
+      table {
+        min-width: 580px;
+      }
+      .form-control {
+        font-size: 16px !important; /* Prevents auto zoom on iOS */
+      }
+      .btn, .nav-item {
+        min-height: 44px; /* Touch target size */
+      }
+    }
+  </style>
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<div id="admin-backdrop" class="admin-backdrop" onclick="toggleAdminNav(false)"></div>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-icon">V</div>
+    <div>
+      <div class="brand-text">Vibe Seekers</div>
+      <div class="brand-sub">Admin Panel</div>
+    </div>
+    <button type="button" class="admin-sidebar-close-btn" onclick="toggleAdminNav(false)" aria-label="Close Admin Menu">✕</button>
+  </div>
+
+  <div class="nav-section">Main</div>
+  <a href="{{ url_for('admin.dashboard') }}" class="nav-item {% if request.endpoint=='admin.dashboard' %}active{% endif %}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+    Dashboard
+  </a>
+
+  <div class="nav-section">Catalog</div>
+  <a href="{{ url_for('admin.products') }}" class="nav-item {% if 'product' in request.endpoint %}active{% endif %}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7l-8-4-8 4m16 0v10l-8 4m-8-4V7m16 10l-8-4m-8 4l8-4m0-10v10"/></svg>
+    Products
+  </a>
+  <a href="{{ url_for('admin.categories') }}" class="nav-item {% if 'categor' in request.endpoint %}active{% endif %}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h8m-8 6h16"/></svg>
+    Categories
+  </a>
+  <a href="{{ url_for('admin.banners') }}" class="nav-item {% if request.endpoint == 'admin.banners' or request.endpoint == 'admin.add_banner' %}active{% endif %}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>
+    Banners
+  </a>
+  <a href="{{ url_for('admin.demo_images') }}" class="nav-item {% if 'demo_image' in request.endpoint %}active{% endif %}" style="position:relative;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+    Demo Images
+    <span style="margin-left:auto;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;letter-spacing:0.5px;">NEW</span>
+  </a>
+
+  <div class="nav-section">Commerce</div>
+  <a href="{{ url_for('admin.orders') }}" class="nav-item {% if 'order' in request.endpoint %}active{% endif %}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+    Orders
+  </a>
+  <a href="{{ url_for('admin.coupons') }}" class="nav-item {% if 'coupon' in request.endpoint %}active{% endif %}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7h.01M17 17h.01M3 3l18 18M3 21l18-18"/></svg>
+    Coupons
+  </a>
+
+  <div class="nav-section">People</div>
+  <a href="{{ url_for('admin.users') }}" class="nav-item {% if 'user' in request.endpoint %}active{% endif %}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+    Users
+  </a>
+  <a href="{{ url_for('admin.reviews') }}" class="nav-item {% if 'review' in request.endpoint %}active{% endif %}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01z"/></svg>
+    Reviews
+  </a>
+  <a href="{{ url_for('admin.messages') }}" class="nav-item {% if 'message' in request.endpoint %}active{% endif %}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+    Messages
+  </a>
+  <a href="{{ url_for('admin.newsletter') }}" class="nav-item {% if 'newsletter' in request.endpoint %}active{% endif %}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+    Newsletter
+  </a>
+
+  <div class="nav-section">System</div>
+  <a href="{{ url_for('admin.settings') }}" class="nav-item {% if 'setting' in request.endpoint %}active{% endif %}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+    Settings
+  </a>
+  <a href="{{ url_for('main.index') }}" target="_blank" class="nav-item">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+    View Store
+  </a>
+
+  <div class="sidebar-footer">
+    <div class="sidebar-user">
+      <div class="user-avatar">{{ current_user.name[0].upper() }}</div>
+      <div>
+        <div class="user-name">{{ current_user.name }}</div>
+        <div class="user-role">Administrator</div>
+      </div>
+    </div>
+    <a href="{{ url_for('admin.logout') }}" class="logout-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      Sign Out
+    </a>
+  </div>
+</aside>
+
+<!-- Main Content -->
+<div class="main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;">
+      <button type="button" class="admin-mobile-toggle" onclick="toggleAdminNav(true)" aria-label="Open Admin Menu">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <div>
+        <div class="page-title">{% block page_title %}Dashboard{% endblock %}</div>
+        <div class="page-breadcrumb">{% block breadcrumb %}Admin / Dashboard{% endblock %}</div>
+      </div>
+    </div>
+    <div class="topbar-actions">{% block topbar_actions %}{% endblock %}</div>
+  </div>
+
+  <div class="flash-container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in messages %}
+        <div class="flash flash-{{ cat }}">
+          {% if cat == 'success' %}✓{% elif cat == 'error' %}✕{% else %}ℹ{% endif %}
+          {{ msg }}
+        </div>
+      {% endfor %}
+    {% endwith %}
+  </div>
+
+  <div class="content">
+    {% block content %}{% endblock %}
+  </div>
+</div>
+
+<script>
+function toggleAdminNav(open) {
+  const sidebar = document.querySelector('.sidebar');
+  const backdrop = document.getElementById('admin-backdrop');
+  if (open) {
+    sidebar?.classList.add('open');
+    backdrop?.classList.add('active');
+    document.body.classList.add('admin-menu-open');
+  } else {
+    sidebar?.classList.remove('open');
+    backdrop?.classList.remove('active');
+    document.body.classList.remove('admin-menu-open');
+  }
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') toggleAdminNav(false);
+});
+</script>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>

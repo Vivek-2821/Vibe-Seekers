@@ -1,0 +1,53 @@
+{% extends "user/base_user.html" %}
+{% block user_content %}
+<h1 style="font-family:var(--font-display);font-size:2rem;font-weight:300;margin-bottom:8px">Welcome, {{ current_user.name.split()[0] }}!</h1>
+<p style="color:var(--text-muted);margin-bottom:32px">Here's a summary of your account activity.</p>
+
+<!-- Stats -->
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:40px">
+  <div class="stat-card">
+    <div class="stat-label">Total Orders</div>
+    <div class="stat-value">{{ order_count }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Wishlist Items</div>
+    <div class="stat-value">{{ wishlist_count }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">First Order Discount</div>
+    <div class="stat-value" style="font-size:1.5rem">{% if current_user.first_order_used %}Used{% else %}10% OFF{% endif %}</div>
+    {% if not current_user.first_order_used %}<div class="stat-change">Apply at checkout with coupon FIRST10</div>{% endif %}
+  </div>
+</div>
+
+<!-- Recent Orders -->
+<h2 style="font-family:var(--font-display);font-size:1.3rem;font-weight:400;margin-bottom:20px">Recent Orders</h2>
+{% if orders %}
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden">
+  <table class="admin-table">
+    <thead><tr>
+      <th>Order</th><th>Date</th><th>Status</th><th>Total</th><th></th>
+    </tr></thead>
+    <tbody>
+    {% for order in orders %}
+    <tr>
+      <td><strong>{{ order.order_number }}</strong></td>
+      <td>{{ order.created_at.strftime('%d %b %Y') }}</td>
+      <td><span class="status-pill status-{{ order.status }}">{{ order.status|title }}</span></td>
+      <td>₹{{ '%.0f'|format(order.total) }}</td>
+      <td><a href="{{ url_for('user.order_detail', order_number=order.order_number) }}" style="color:var(--accent);font-size:.82rem">View →</a></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+<a href="{{ url_for('user.orders') }}" class="btn btn-outline btn-sm mt-2" style="display:inline-flex">View All Orders</a>
+{% else %}
+<div class="empty-state" style="padding:40px 0">
+  <div class="empty-state-icon">📦</div>
+  <h3>No orders yet</h3>
+  <p>Start shopping and your orders will appear here.</p>
+  <a href="{{ url_for('shop.all_products') }}" class="btn btn-primary mt-2" style="display:inline-flex">Shop Now</a>
+</div>
+{% endif %}
+{% endblock %}

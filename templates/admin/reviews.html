@@ -1,0 +1,51 @@
+{% extends 'admin/base_admin.html' %}
+{% block page_title %}Reviews{% endblock %}
+{% block breadcrumb %}Admin / Reviews{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="table-responsive">
+    {% if reviews %}
+    <table>
+      <thead>
+        <tr><th>Product</th><th>Customer</th><th>Rating</th><th>Review</th><th>Date</th><th>Status</th><th>Action</th></tr>
+      </thead>
+      <tbody>
+        {% for r in reviews %}
+        <tr>
+          <td style="font-weight:600;max-width:160px;">{{ r.product.name if r.product else '(deleted)' }}</td>
+          <td style="color:#64748b;font-size:13px;">{{ r.user.name }}<br/>{{ r.user.email }}</td>
+          <td>
+            <span style="color:#fbbf24;font-size:16px;">{{ '★' * r.rating }}{{ '☆' * (5 - r.rating) }}</span>
+          </td>
+          <td style="max-width:300px;font-size:13px;color:#94a3b8;">
+            {% if r.title %}<strong style="color:#e2e8f0;">{{ r.title }}</strong><br/>{% endif %}
+            {{ r.body[:150] ~ '…' if r.body and r.body|length > 150 else r.body or '' }}
+          </td>
+          <td style="color:#64748b;font-size:13px;">{{ r.created_at.strftime('%d %b %Y') }}</td>
+          <td>
+            <span class="badge {% if r.is_approved %}badge-active{% else %}badge-inactive{% endif %}">
+              {{ 'Approved' if r.is_approved else 'Hidden' }}
+            </span>
+          </td>
+          <td>
+            <form method="POST" action="{{ url_for('admin.toggle_review', review_id=r.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+              <button type="submit" class="btn btn-sm {% if r.is_approved %}btn-danger{% else %}btn-success{% endif %}">
+                {{ 'Hide' if r.is_approved else 'Approve' }}
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="padding:60px;text-align:center;color:#64748b;">
+      <div style="font-size:48px;margin-bottom:16px;">⭐</div>
+      <div style="font-size:18px;font-weight:600;">No reviews yet</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

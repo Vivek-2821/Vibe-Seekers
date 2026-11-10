@@ -1,0 +1,510 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-hero">
+  <div class="container">
+    <h1>Checkout</h1>
+    <p class="breadcrumbs"><a href="{{ url_for('main.index') }}">Home</a> / <a href="{{ url_for('cart.view_cart') }}">Cart</a> / Checkout</p>
+  </div>
+</div>
+
+<div class="container" style="padding-bottom:80px">
+  <form method="POST" action="{{ url_for('cart.checkout') }}" id="checkout-form" novalidate data-no-transition>
+    <input type="hidden" name="csrf_token" id="csrf_token" value="{{ csrf_token() }}">
+
+    <!-- Mobile Collapsible Order Summary Toggle Bar -->
+    <div class="mobile-order-summary-toggle" id="mobile-summary-toggle" onclick="toggleMobileOrderSummary()">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:1.1rem;">🛍️</span>
+        <span style="font-weight:600;font-size:0.88rem;" id="mobile-summary-toggle-text">Show order summary</span>
+        <span id="mobile-summary-arrow" style="font-size:0.75rem;transition:transform 0.25s ease;">▼</span>
+      </div>
+      <div style="font-weight:700;color:var(--accent);font-size:1rem;">
+        ₹{{ '%.0f'|format(totals.total) }}
+      </div>
+    </div>
+
+    <div class="cart-grid">
+      <!-- Shipping & Payment -->
+      <div>
+        <!-- In-Place Error Banner (Shown without reloading page) -->
+        <div id="checkout-error-banner" style="display:none;background:rgba(220,30,30,0.12);border:1.5px solid var(--error);border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:24px;">
+          <div style="display:flex;align-items:flex-start;gap:12px;">
+            <span style="font-size:20px;color:var(--error);line-height:1;">⚠️</span>
+            <div style="flex:1;">
+              <strong style="color:var(--error);font-size:0.95rem;display:block;margin-bottom:4px;" id="checkout-error-title">Unable to process order</strong>
+              <div id="checkout-error-message" style="font-size:0.85rem;color:#fca5a5;line-height:1.5;"></div>
+            </div>
+            <button type="button" onclick="document.getElementById('checkout-error-banner').style.display='none'" style="background:none;border:none;color:#94a3b8;font-size:18px;cursor:pointer;">✕</button>
+          </div>
+        </div>
+
+        <div class="checkout-section-title"><span>1</span> Shipping Details</div>
+
+        {% if addresses %}
+        <div style="margin-bottom:24px">
+          <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:12px">Choose a saved address:</p>
+          {% for addr in addresses %}
+          <label class="address-option" id="addr-label-{{ addr.id }}">
+            <input type="radio" name="address_id" value="{{ addr.id }}" {% if loop.first or addr.is_default %}checked{% endif %} style="margin-top:3px;accent-color:var(--accent)" class="addr-radio">
+            <div>
+              <strong>{{ addr.full_name }}</strong> · {{ addr.phone }}<br>
+              <span style="font-size:.85rem;color:var(--text-muted)">{{ addr.address_line1 }}{% if addr.address_line2 %}, {{ addr.address_line2 }}{% endif %}, {{ addr.city }}, {{ addr.state }} – {{ addr.pincode }}</span>
+            </div>
+          </label>
+          {% endfor %}
+          <label class="address-option" id="addr-label-new">
+            <input type="radio" name="address_id" value="" class="addr-radio"> <span style="font-size:.85rem;color:var(--text-muted)">＋ Add a new address</span>
+          </label>
+        </div>
+        {% endif %}
+
+        <!-- New address fields -->
+        <div id="new-address-fields" {% if addresses %}style="display:none"{% endif %}>
+          <div style="background:var(--bg-card);border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:28px;margin-bottom:24px">
+            <p style="font-size:.7rem;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:20px;font-family:var(--font-heading)">Delivery Address</p>
+
+            <div class="grid-2">
+              <div class="form-group" id="fg-full_name">
+                <label class="form-label">Full Name <span style="color:var(--error)">*</span></label>
+                <input type="text" name="full_name" id="full_name" class="form-control" placeholder="Your full name" value="{{ current_user.name }}" autocomplete="name">
+                <div class="form-error" id="err-full_name" style="display:none"></div>
+              </div>
+              <div class="form-group" id="fg-phone">
+                <label class="form-label">Phone Number <span style="color:var(--error)">*</span></label>
+                <input type="tel" name="phone" id="phone" class="form-control" placeholder="10-digit mobile number" value="{{ current_user.phone or '' }}" autocomplete="tel" maxlength="10" inputmode="numeric">
+                <div class="form-error" id="err-phone" style="display:none"></div>
+              </div>
+            </div>
+
+            <div class="form-group" id="fg-email">
+              <label class="form-label">Email Address (for order updates &amp; tracking) <span style="color:var(--error)">*</span></label>
+              <input type="email" name="email" id="email" class="form-control" placeholder="name@example.com" value="{{ current_user.email }}" autocomplete="email">
+              <div class="form-error" id="err-email" style="display:none"></div>
+            </div>
+
+            <div class="form-group" id="fg-address_line1">
+              <label class="form-label">Address Line 1 <span style="color:var(--error)">*</span></label>
+              <input type="text" name="address_line1" id="address_line1" class="form-control" placeholder="House / Flat no., Building, Street" autocomplete="address-line1">
+              <div class="form-error" id="err-address_line1" style="display:none"></div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Address Line 2 <span style="font-size:.7rem;color:var(--text-dim)">(Optional)</span></label>
+              <input type="text" name="address_line2" id="address_line2" class="form-control" placeholder="Area, Landmark, Colony" autocomplete="address-line2">
+            </div>
+
+            <div class="grid-3">
+              <div class="form-group" id="fg-city">
+                <label class="form-label">City <span style="color:var(--error)">*</span></label>
+                <input type="text" name="city" id="city" class="form-control" placeholder="City" autocomplete="address-level2">
+                <div class="form-error" id="err-city" style="display:none"></div>
+              </div>
+              <div class="form-group" id="fg-state">
+                <label class="form-label">State <span style="color:var(--error)">*</span></label>
+                <select name="state" id="state" class="form-control" style="appearance:none;-webkit-appearance:none">
+                  <option value="">Select State</option>
+                  <option>Andhra Pradesh</option><option>Arunachal Pradesh</option><option>Assam</option>
+                  <option>Bihar</option><option>Chhattisgarh</option><option>Goa</option>
+                  <option>Gujarat</option><option>Haryana</option><option>Himachal Pradesh</option>
+                  <option>Jharkhand</option><option>Karnataka</option><option>Kerala</option>
+                  <option>Madhya Pradesh</option><option>Maharashtra</option><option>Manipur</option>
+                  <option>Meghalaya</option><option>Mizoram</option><option>Nagaland</option>
+                  <option>Odisha</option><option>Punjab</option><option>Rajasthan</option>
+                  <option>Sikkim</option><option>Tamil Nadu</option><option>Telangana</option>
+                  <option>Tripura</option><option>Uttar Pradesh</option><option>Uttarakhand</option>
+                  <option>West Bengal</option>
+                  <option>Delhi</option><option>Jammu &amp; Kashmir</option><option>Ladakh</option>
+                  <option>Chandigarh</option><option>Puducherry</option><option>Lakshadweep</option>
+                  <option>Andaman &amp; Nicobar Islands</option><option>Dadra &amp; Nagar Haveli</option>
+                </select>
+                <div class="form-error" id="err-state" style="display:none"></div>
+              </div>
+              <div class="form-group" id="fg-pincode">
+                <label class="form-label">PIN Code <span style="color:var(--error)">*</span></label>
+                <div style="position:relative;display:flex;gap:6px">
+                  <input type="text" name="pincode" id="pincode" class="form-control" placeholder="6-digit PIN" maxlength="6" inputmode="numeric" autocomplete="postal-code" style="flex:1">
+                  <button type="button" id="btn-check-pincode" class="btn btn-outline btn-sm" style="white-space:nowrap;padding:0 12px;font-size:.78rem">Check</button>
+                </div>
+                <div class="form-error" id="err-pincode" style="display:none"></div>
+              </div>
+            </div>
+
+            <!-- Shiprocket Serviceability feedback box -->
+            <div id="shiprocket-service-status" style="display:none;margin-top:12px;padding:12px 16px;border-radius:var(--radius);font-size:.82rem;line-height:1.5;"></div>
+          </div>
+        </div>
+
+        <!-- Payment Method -->
+        <div class="checkout-section-title" style="margin-top:12px"><span>2</span> Payment Method</div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <!-- Razorpay Option -->
+          <label class="payment-option selected" id="pay-razorpay" style="cursor:pointer;">
+            <input type="radio" name="payment_method" value="razorpay" checked style="accent-color:var(--accent)">
+            <div class="payment-icon" style="font-size:22px;">⚡</div>
+            <div style="flex:1;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <strong>Razorpay Online Payment</strong>
+                <span style="background:rgba(34,197,94,0.15);color:#22c55e;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;">RECOMMENDED</span>
+              </div>
+              <p style="font-size:.82rem;color:var(--text-muted);margin-top:4px">
+                Instant checkout via <strong>Google Pay, PhonePe, Paytm, all UPI apps, Cards &amp; Net Banking</strong>.
+              </p>
+            </div>
+          </label>
+
+          <!-- Cash on Delivery Option -->
+          <label class="payment-option" id="pay-cod" style="cursor:pointer;">
+            <input type="radio" name="payment_method" value="cod" style="accent-color:var(--accent)">
+            <div class="payment-icon" style="font-size:22px;">💵</div>
+            <div>
+              <strong>Cash on Delivery (COD)</strong>
+              <p style="font-size:.82rem;color:var(--text-muted);margin-top:4px">Pay with cash when your package arrives at your doorstep.</p>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Order Summary -->
+      <div>
+        <div class="order-summary" id="checkout-order-summary-box" style="position:sticky;top:100px;">
+          <h3 class="desktop-summary-title">Order Summary</h3>
+          <div id="checkout-summary-body" class="checkout-summary-collapsible">
+            {% for item in cart_items %}
+            <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)">
+              {% if item.product.primary_image %}
+              <img src="{{ item.product.primary_image }}" style="width:56px;height:72px;object-fit:cover;border-radius:6px;flex-shrink:0" alt="{{ item.product.name }}">
+              {% endif %}
+              <div style="flex:1;min-width:0">
+                <p style="font-size:.88rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ item.product.name }}</p>
+                <p style="font-size:.78rem;color:var(--text-muted)">Qty: {{ item.quantity }}{% if item.size %} · {{ item.size }}{% endif %}</p>
+              </div>
+              <span style="font-size:.9rem;font-weight:600;white-space:nowrap">₹{{ '%.0f'|format(item.product.discounted_price * item.quantity) }}</span>
+            </div>
+            {% endfor %}
+
+            <div class="summary-row"><span>Subtotal</span><span>₹{{ '%.0f'|format(totals.subtotal) }}</span></div>
+            {% if totals.discount > 0 %}
+            <div class="summary-row discount"><span>Discount{% if totals.coupon_code %} ({{ totals.coupon_code }}){% endif %}</span><span style="color:#22c55e;">−₹{{ '%.0f'|format(totals.discount) }}</span></div>
+            {% endif %}
+            <div class="summary-row">
+              <span>Shipping</span>
+              <span>{% if totals.shipping == 0 %}<strong style="color:#22c55e;">FREE</strong>{% else %}₹{{ totals.shipping }}{% endif %}</span>
+            </div>
+            <div class="summary-row total">
+              <span>Total Payable</span>
+              <span id="order-total-display" style="color:var(--accent);">₹{{ '%.0f'|format(totals.total) }}</span>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-full btn-lg" style="margin-top:20px;padding:15px;font-size:16px;border-radius:10px;" id="place-order-btn">
+            <span id="btn-text">Proceed to Payment →</span>
+          </button>
+          
+          <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-top:14px;color:#94a3b8;font-size:12px;">
+            <span>🔒 256-bit SSL</span>
+            <span>🛡️ Razorpay Verified</span>
+            <span>⚡ 100% Secure</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- Razorpay Official Checkout SDK -->
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+<script>
+/* ── Mobile Order Summary Toggle ── */
+function toggleMobileOrderSummary() {
+  const body = document.getElementById('checkout-summary-body');
+  const arrow = document.getElementById('mobile-summary-arrow');
+  const text = document.getElementById('mobile-summary-toggle-text');
+  if (!body) return;
+  const isExpanded = body.classList.contains('expanded');
+  if (isExpanded) {
+    body.classList.remove('expanded');
+    if (arrow) arrow.style.transform = 'rotate(0deg)';
+    if (text) text.textContent = 'Show order summary';
+  } else {
+    body.classList.add('expanded');
+    if (arrow) arrow.style.transform = 'rotate(180deg)';
+    if (text) text.textContent = 'Hide order summary';
+  }
+}
+
+/* ── Address Selector Toggle ── */
+const addrRadios = document.querySelectorAll('.addr-radio');
+const newAddrFields = document.getElementById('new-address-fields');
+if (addrRadios.length) {
+  addrRadios.forEach(r => {
+    r.addEventListener('change', () => {
+      document.querySelectorAll('.address-option').forEach(l => l.classList.remove('selected'));
+      r.closest('.address-option')?.classList.add('selected');
+      if (newAddrFields) {
+        newAddrFields.style.display = r.value === '' ? 'block' : 'none';
+      }
+    });
+  });
+}
+
+/* ── Payment Option Toggle ── */
+const payCod = document.getElementById('pay-cod');
+const payRazorpay = document.getElementById('pay-razorpay');
+const btnText = document.getElementById('btn-text');
+
+function updatePaymentSelection() {
+  const isCod = document.querySelector('input[name="payment_method"]:checked')?.value === 'cod';
+  if (isCod) {
+    payCod?.classList.add('selected');
+    payRazorpay?.classList.remove('selected');
+    if (btnText) btnText.textContent = 'Place Order (Cash on Delivery) →';
+  } else {
+    payRazorpay?.classList.add('selected');
+    payCod?.classList.remove('selected');
+    if (btnText) btnText.textContent = 'Proceed to Payment (Razorpay) →';
+  }
+}
+document.querySelectorAll('input[name="payment_method"]').forEach(r => {
+  r.addEventListener('change', updatePaymentSelection);
+});
+updatePaymentSelection();
+
+/* ── In-place Error Notification ── */
+function showCheckoutError(title, message) {
+  const banner = document.getElementById('checkout-error-banner');
+  const titleEl = document.getElementById('checkout-error-title');
+  const msgEl = document.getElementById('checkout-error-message');
+  if (banner && titleEl && msgEl) {
+    titleEl.textContent = title || 'Error';
+    msgEl.innerHTML = message || 'Please check your information and try again.';
+    banner.style.display = 'block';
+    banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+function clearCheckoutError() {
+  const banner = document.getElementById('checkout-error-banner');
+  if (banner) banner.style.display = 'none';
+}
+
+function showFieldError(fieldId, msg) {
+  const input = document.getElementById(fieldId);
+  const errDiv = document.getElementById('err-' + fieldId);
+  if (input) input.classList.add('field-error');
+  if (errDiv) { errDiv.textContent = msg; errDiv.style.display = 'block'; }
+}
+
+function clearFieldError(fieldId) {
+  const input = document.getElementById(fieldId);
+  const errDiv = document.getElementById('err-' + fieldId);
+  if (input) input.classList.remove('field-error');
+  if (errDiv) errDiv.style.display = 'none';
+}
+
+/* ── Shiprocket Pincode Check ── */
+const pinInput = document.getElementById('pincode');
+const checkPinBtn = document.getElementById('btn-check-pincode');
+const serviceStatusBox = document.getElementById('shiprocket-service-status');
+
+async function checkPincode(pin) {
+  if (!/^[1-9][0-9]{5}$/.test(pin)) {
+    showFieldError('pincode', 'Please enter a valid 6-digit Indian PIN code.');
+    return;
+  }
+  clearFieldError('pincode');
+  if (checkPinBtn) { checkPinBtn.disabled = true; checkPinBtn.textContent = 'Checking…'; }
+  if (serviceStatusBox) {
+    serviceStatusBox.style.display = 'block';
+    serviceStatusBox.style.background = 'rgba(255,255,255,0.05)';
+    serviceStatusBox.style.color = '#cbd5e1';
+    serviceStatusBox.innerHTML = '⏳ Checking courier serviceability...';
+  }
+
+  try {
+    const res = await fetch(`/api/shipping/check-serviceability?pincode=${pin}`);
+    const json = await res.json();
+    const data = json.data || {};
+    if (data.serviceable) {
+      serviceStatusBox.style.background = 'rgba(34,197,94,0.12)';
+      serviceStatusBox.style.border = '1px solid #22c55e';
+      serviceStatusBox.style.color = '#22c55e';
+      serviceStatusBox.innerHTML = `✓ Delivery available to <strong>${pin}</strong> (${data.estimated_days || '3-5 days'})`;
+    } else {
+      serviceStatusBox.style.background = 'rgba(220,30,30,0.12)';
+      serviceStatusBox.style.border = '1px solid var(--error)';
+      serviceStatusBox.style.color = '#fca5a5';
+      serviceStatusBox.innerHTML = `✕ ${data.message || 'PIN code is currently unserviceable.'}`;
+    }
+  } catch (e) {
+    if (serviceStatusBox) serviceStatusBox.style.display = 'none';
+  } finally {
+    if (checkPinBtn) { checkPinBtn.disabled = false; checkPinBtn.textContent = 'Check'; }
+  }
+}
+
+if (checkPinBtn && pinInput) {
+  checkPinBtn.addEventListener('click', () => checkPincode(pinInput.value.trim()));
+}
+if (pinInput) {
+  pinInput.addEventListener('input', () => {
+    if (pinInput.value.trim().length === 6) {
+      checkPincode(pinInput.value.trim());
+    }
+  });
+}
+
+/* ── Validation Helper ── */
+function validateForm() {
+  clearCheckoutError();
+  const selectedAddr = document.querySelector('input[name="address_id"]:checked');
+  if (selectedAddr && selectedAddr.value !== '') {
+    return true; // Using saved address
+  }
+
+  const errors = [];
+  const name = document.getElementById('full_name')?.value.trim();
+  const phone = document.getElementById('phone')?.value.trim();
+  const email = document.getElementById('email')?.value.trim();
+  const addr1 = document.getElementById('address_line1')?.value.trim();
+  const city = document.getElementById('city')?.value.trim();
+  const state = document.getElementById('state')?.value.trim();
+  const pin = document.getElementById('pincode')?.value.trim();
+
+  if (!name || name.length < 2) { showFieldError('full_name', 'Full name is required.'); errors.push('Full name'); } else { clearFieldError('full_name'); }
+  if (!phone || !/^[6-9][0-9]{9}$/.test(phone)) { showFieldError('phone', 'Valid 10-digit mobile number required.'); errors.push('Mobile number'); } else { clearFieldError('phone'); }
+  if (!email || !email.includes('@')) { showFieldError('email', 'Valid email address required.'); errors.push('Email address'); } else { clearFieldError('email'); }
+  if (!addr1 || addr1.length < 5) { showFieldError('address_line1', 'Street address is required.'); errors.push('Street address'); } else { clearFieldError('address_line1'); }
+  if (!city) { showFieldError('city', 'City is required.'); errors.push('City'); } else { clearFieldError('city'); }
+  if (!state) { showFieldError('state', 'State is required.'); errors.push('State'); } else { clearFieldError('state'); }
+  if (!pin || !/^[1-9][0-9]{5}$/.test(pin)) { showFieldError('pincode', 'Valid 6-digit Indian PIN code required.'); errors.push('PIN code'); } else { clearFieldError('pincode'); }
+
+  if (errors.length > 0) {
+    showCheckoutError('Missing Information', `Please fill in all required fields: ${errors.join(', ')}.`);
+    return false;
+  }
+  return true;
+}
+
+/* ── Form Submit: Handles Razorpay and COD without refreshing on errors ── */
+const checkoutForm = document.getElementById('checkout-form');
+const placeOrderBtn = document.getElementById('place-order-btn');
+
+function setButtonLoading(loading) {
+  if (!placeOrderBtn) return;
+  placeOrderBtn.disabled = loading;
+  placeOrderBtn.style.opacity = loading ? '0.6' : '1';
+  if (loading) {
+    btnText.textContent = 'Processing Securely…';
+  } else {
+    updatePaymentSelection();
+  }
+}
+
+if (checkoutForm) {
+  checkoutForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    if (!validateForm()) {
+      return;
+    }
+
+    setButtonLoading(true);
+    clearCheckoutError();
+
+    try {
+      const formData = new FormData(checkoutForm);
+      const resp = await fetch(checkoutForm.action, {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+
+      const data = await resp.json();
+
+      if (!resp.ok || !data.success) {
+        const errMsg = data.errors ? data.errors.join('<br>') : (data.error || 'Unable to place order. Please check your details.');
+        showCheckoutError('Order Submission Notice', errMsg);
+        setButtonLoading(false);
+        return;
+      }
+
+      // ── Razorpay Payment Flow ──
+      if (data.razorpay) {
+        if (!window.Razorpay) {
+          showCheckoutError('Payment Gateway Error', 'Razorpay SDK failed to load. Please refresh and try again.');
+          setButtonLoading(false);
+          return;
+        }
+
+        const rzpOptions = {
+          key: data.key_id,
+          amount: data.amount,
+          currency: data.currency || 'INR',
+          name: 'Vibe Seekers',
+          description: data.description,
+          image: '/static/images/logo.png',
+          order_id: data.razorpay_order_id,
+          prefill: {
+            name: data.customer_name,
+            email: data.customer_email,
+            contact: data.customer_phone
+          },
+          theme: {
+            color: '#DC1E1E'
+          },
+          modal: {
+            ondismiss: function() {
+              showCheckoutError('Payment Incomplete', 'Payment was cancelled or closed. You can try again or select Cash on Delivery.');
+              setButtonLoading(false);
+            }
+          },
+          handler: async function(paymentResponse) {
+            btnText.textContent = 'Verifying Payment…';
+            try {
+              const verifyResp = await fetch('/cart/payment/verify', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-Requested-With': 'XMLHttpRequest',
+                  'X-CSRFToken': document.getElementById('csrf_token')?.value || ''
+                },
+                body: JSON.stringify({
+                  order_number: data.order_number,
+                  razorpay_payment_id: paymentResponse.razorpay_payment_id,
+                  razorpay_order_id: paymentResponse.razorpay_order_id,
+                  razorpay_signature: paymentResponse.razorpay_signature
+                })
+              });
+              const verifyData = await verifyResp.json();
+              if (verifyData.success) {
+                window.location.href = verifyData.redirect;
+              } else {
+                showCheckoutError('Verification Notice', verifyData.error || 'Payment verification failed. Please contact support.');
+                setButtonLoading(false);
+              }
+            } catch (verErr) {
+              showCheckoutError('Network Notice', 'Network issue during verification. If money was deducted, your order will be confirmed shortly.');
+              setButtonLoading(false);
+            }
+          }
+        };
+
+        const rzp = new Razorpay(rzpOptions);
+        rzp.on('payment.failed', function(resp) {
+          showCheckoutError('Payment Failed', resp.error.description || 'Payment was declined. Please try another card, UPI ID, or Cash on Delivery.');
+          setButtonLoading(false);
+        });
+        rzp.open();
+      } else {
+        // Cash on Delivery flow
+        window.location.href = data.redirect;
+      }
+    } catch (err) {
+      showCheckoutError('Network Notice', 'Unable to reach the server. Please check your internet connection and try again.');
+      setButtonLoading(false);
+    }
+  });
+}
+</script>
+{% endblock %}

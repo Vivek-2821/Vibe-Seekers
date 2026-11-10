@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block content %}
+<section style="padding: 80px 0; max-width: 900px; margin: 0 auto; padding-left: 24px; padding-right: 24px;">
+  <div style="text-align:center; margin-bottom: 60px;">
+    <h1 style="font-size: 48px; font-weight: 800; background: linear-gradient(135deg, #7c3aed, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 16px;">Our Story</h1>
+    <p style="font-size: 18px; color: #94a3b8; max-width: 600px; margin: 0 auto; line-height: 1.7;">
+      Born on the streets, built for the bold. Vibe Seekers is more than clothing — it's a movement.
+    </p>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; margin-bottom: 80px;">
+    <div>
+      <h2 style="font-size: 28px; font-weight: 700; color: #e2e8f0; margin-bottom: 20px;">Who We Are</h2>
+      <p style="color: #94a3b8; line-height: 1.8; margin-bottom: 16px;">
+        Vibe Seekers was founded with one simple belief: streetwear should tell your story. 
+        We design for those who refuse to blend in — the creators, the dreamers, the ones who dare to be different.
+      </p>
+      <p style="color: #94a3b8; line-height: 1.8;">
+        Every piece we create is carefully designed, premium quality, and limited in production. 
+        When you wear Vibe Seekers, you're not just wearing clothes — you're wearing your identity.
+      </p>
+    </div>
+    <div style="background: linear-gradient(135deg, rgba(124,58,237,0.2), rgba(168,85,247,0.1)); border: 1px solid rgba(124,58,237,0.3); border-radius: 20px; padding: 40px; text-align: center;">
+      <div style="font-size: 60px; margin-bottom: 16px;">🔥</div>
+      <div style="font-size: 36px; font-weight: 800; color: #a855f7; margin-bottom: 8px;">2024</div>
+      <div style="color: #94a3b8;">Year Founded</div>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 80px;">
+    {% for item in [
+      ('🎨', 'Original Designs', 'Every design is crafted in-house by our creative team. No templates, no shortcuts.'),
+      ('✂️', 'Premium Quality', 'We use only the finest fabrics — soft, durable, and built to last through every adventure.'),
+      ('🌍', 'Delivered Pan India', 'Fast, reliable shipping to every corner of India with tracking and care.')
+    ] %}
+    <div style="background: rgba(17,17,24,0.8); border: 1px solid #2a2a3a; border-radius: 16px; padding: 32px; text-align: center; transition: all 0.3s; cursor: default;"
+         onmouseover="this.style.borderColor='rgba(124,58,237,0.5)'; this.style.transform='translateY(-4px)'"
+         onmouseout="this.style.borderColor='#2a2a3a'; this.style.transform='translateY(0)'">
+      <div style="font-size: 40px; margin-bottom: 16px;">{{ item[0] }}</div>
+      <h3 style="font-size: 18px; font-weight: 700; color: #e2e8f0; margin-bottom: 12px;">{{ item[1] }}</h3>
+      <p style="color: #64748b; font-size: 14px; line-height: 1.6;">{{ item[2] }}</p>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div style="text-align: center; background: linear-gradient(135deg, rgba(124,58,237,0.15), rgba(168,85,247,0.05)); border: 1px solid rgba(124,58,237,0.3); border-radius: 20px; padding: 60px;">
+    <h2 style="font-size: 32px; font-weight: 800; color: #e2e8f0; margin-bottom: 16px;">Join The Movement</h2>
+    <p style="color: #94a3b8; margin-bottom: 32px; font-size: 16px;">Follow us on Instagram for new drops, exclusive content, and behind-the-scenes.</p>
+    <a href="{{ site_settings.get('social_instagram', '#') }}" target="_blank"
+       style="display: inline-flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #7c3aed, #a855f7); color: #fff; padding: 14px 32px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 16px;">
+      📸 Follow @VibeSeakers
+    </a>
+  </div>
+</section>
+{% endblock %}

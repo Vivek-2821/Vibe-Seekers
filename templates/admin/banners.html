@@ -1,0 +1,57 @@
+{% extends 'admin/base_admin.html' %}
+{% block page_title %}Banners{% endblock %}
+{% block breadcrumb %}Admin / Banners{% endblock %}
+{% block topbar_actions %}
+  <a href="{{ url_for('admin.add_banner') }}" class="btn btn-primary">+ Add Banner</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="table-responsive">
+    {% if banners %}
+    <table>
+      <thead>
+        <tr><th>Preview</th><th>Title</th><th>CTA</th><th>Sort</th><th>Status</th><th>Action</th></tr>
+      </thead>
+      <tbody>
+        {% for b in banners %}
+        <tr>
+          <td>
+            {% if b.image_url %}
+              <img src="{{ b.image_url }}" style="width:120px;height:50px;object-fit:cover;border-radius:6px;border:1px solid #2a2a3a;"/>
+            {% else %}
+              <div style="width:120px;height:50px;background:#1a1a24;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#64748b;">No Image</div>
+            {% endif %}
+          </td>
+          <td>
+            <div style="font-weight:600;">{{ b.title or '—' }}</div>
+            <div style="font-size:12px;color:#64748b;">{{ b.subtitle[:60] ~ '…' if b.subtitle and b.subtitle|length > 60 else b.subtitle or '' }}</div>
+          </td>
+          <td>
+            {% if b.cta_text %}<span style="font-size:13px;">{{ b.cta_text }}</span>{% else %}—{% endif %}
+          </td>
+          <td>{{ b.sort_order }}</td>
+          <td><span class="badge {% if b.is_active %}badge-active{% else %}badge-inactive{% endif %}">{{ 'Active' if b.is_active else 'Hidden' }}</span></td>
+          <td>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <a href="{{ url_for('admin.edit_banner', banner_id=b.id) }}" class="btn btn-sm btn-secondary">Edit</a>
+              <form method="POST" action="{{ url_for('admin.delete_banner', banner_id=b.id) }}" onsubmit="return confirm('Delete this banner?')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="padding:60px;text-align:center;color:#64748b;">
+      <div style="font-size:48px;margin-bottom:16px;">🖼️</div>
+      <div style="font-size:18px;font-weight:600;margin-bottom:8px;">No banners added</div>
+      <a href="{{ url_for('admin.add_banner') }}" class="btn btn-primary">Add Banner</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

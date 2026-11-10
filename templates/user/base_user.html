@@ -1,0 +1,30 @@
+<!-- User Dashboard Base Layout -->
+{% extends "base.html" %}
+{% block content %}
+<div style="display:grid;grid-template-columns:240px 1fr;gap:0;min-height:calc(100vh - var(--nav-height) - var(--announcement-height))">
+  <!-- Sidebar -->
+  <aside style="background:var(--bg-soft);border-right:1px solid var(--border);padding:32px 16px">
+    <div style="padding:0 8px 24px;border-bottom:1px solid var(--border);margin-bottom:16px">
+      <div style="font-family:var(--font-display);font-size:1.1rem;margin-bottom:4px">{{ current_user.name }}</div>
+      <div style="font-size:.78rem;color:var(--text-dim)">{{ current_user.email }}</div>
+    </div>
+    {% macro nav_link(endpoint, icon, label) %}
+    <a href="{{ url_for(endpoint) }}" class="admin-nav-link {% if request.endpoint == endpoint %}active{% endif %}">
+      {{ icon }} {{ label }}
+    </a>
+    {% endmacro %}
+    {{ nav_link('user.dashboard', '⊞', 'Dashboard') }}
+    {{ nav_link('user.profile', '◉', 'Profile') }}
+    {{ nav_link('user.orders', '📦', 'My Orders') }}
+    {{ nav_link('user.wishlist', '♡', 'Wishlist') }}
+    {{ nav_link('user.addresses', '📍', 'Addresses') }}
+    <div style="height:1px;background:var(--border);margin:16px 0"></div>
+    <a href="{{ url_for('auth.logout') }}" class="admin-nav-link" style="color:var(--error)">↩ Sign Out</a>
+  </aside>
+
+  <!-- Content -->
+  <div style="padding:40px">
+    {% block user_content %}{% endblock %}
+  </div>
+</div>
+{% endblock %}

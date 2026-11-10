@@ -1,0 +1,44 @@
+{% extends "user/base_user.html" %}
+{% block user_content %}
+<h1 style="font-family:var(--font-display);font-size:2rem;font-weight:300;margin-bottom:32px">My Profile</h1>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:32px">
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px">
+    <h2 style="font-family:var(--font-display);font-size:1.2rem;margin-bottom:20px">Personal Information</h2>
+    <form method="POST" action="{{ url_for('user.profile') }}" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-group">
+        <label class="form-label">Full Name</label>
+        <input type="text" name="name" class="form-control" value="{{ current_user.name }}" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" class="form-control" value="{{ current_user.email }}" disabled style="opacity:.6">
+        <p class="form-hint">Email cannot be changed.</p>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Phone</label>
+        <input type="tel" name="phone" class="form-control" value="{{ current_user.phone or '' }}">
+      </div>
+      <button type="submit" class="btn btn-primary">Save Changes</button>
+    </form>
+  </div>
+
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px">
+    <h2 style="font-family:var(--font-display);font-size:1.2rem;margin-bottom:20px">Change Password</h2>
+    <form method="POST" action="{{ url_for('user.profile') }}" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="name" value="{{ current_user.name }}">
+      <div class="form-group">
+        <label class="form-label">Current Password</label>
+        <input type="password" name="current_password" class="form-control" placeholder="••••••••">
+      </div>
+      <div class="form-group">
+        <label class="form-label">New Password</label>
+        <input type="password" name="new_password" class="form-control" placeholder="At least 8 characters" minlength="8">
+      </div>
+      <button type="submit" class="btn btn-outline">Update Password</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

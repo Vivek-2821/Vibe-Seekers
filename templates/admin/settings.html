@@ -1,0 +1,133 @@
+{% extends 'admin/base_admin.html' %}
+{% block page_title %}Site Settings{% endblock %}
+{% block breadcrumb %}Admin / Settings{% endblock %}
+
+{% block content %}
+<div style="max-width:720px;">
+  <form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+    <div class="card mb-6">
+      <div class="card-header"><h3 class="card-title">📣 Announcement Bar</h3></div>
+      <div class="card-body">
+        <div class="form-group">
+          <label class="form-label">Announcement Text</label>
+          <input type="text" name="announcement_text" class="form-control"
+                 value="{{ settings.get('announcement_text', '') }}"
+                 placeholder="🔥 FREE SHIPPING on orders above ₹999…"/>
+        </div>
+        <div class="form-check">
+          <input type="checkbox" name="announcement_active" id="ann_active"
+                 {% if settings.get('announcement_active') == 'true' %}checked{% endif %}/>
+          <label for="ann_active">Show announcement bar</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-6">
+      <div class="card-header"><h3 class="card-title">🏪 Store Info</h3></div>
+      <div class="card-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Store Name</label>
+            <input type="text" name="store_name" class="form-control" value="{{ settings.get('store_name', 'Vibe Seekers') }}"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Store Email</label>
+            <input type="email" name="store_email" class="form-control" value="{{ settings.get('store_email', '') }}" placeholder="hello@vibeseekers.com"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Phone Number</label>
+            <input type="text" name="store_phone" class="form-control" value="{{ settings.get('store_phone', '') }}" placeholder="+91 98604 98749"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Address</label>
+            <input type="text" name="store_address" class="form-control" value="{{ settings.get('store_address', '') }}" placeholder="City, State, India"/>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-6">
+      <div class="card-header"><h3 class="card-title">💳 Payment</h3></div>
+      <div class="card-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">UPI ID</label>
+            <input type="text" name="upi_id" class="form-control" value="{{ settings.get('upi_id', '9860498749-2@ybl') }}" placeholder="yourname@upi"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Razorpay Key ID (optional)</label>
+            <input type="text" name="razorpay_key_id" class="form-control" value="{{ settings.get('razorpay_key_id', '') }}" placeholder="rzp_live_..."/>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-6">
+      <div class="card-header"><h3 class="card-title">📱 Social Media</h3></div>
+      <div class="card-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Instagram URL</label>
+            <input type="url" name="social_instagram" class="form-control" value="{{ settings.get('social_instagram', '') }}" placeholder="https://instagram.com/..."/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Facebook URL</label>
+            <input type="url" name="social_facebook" class="form-control" value="{{ settings.get('social_facebook', '') }}" placeholder="https://facebook.com/..."/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Twitter/X URL</label>
+            <input type="url" name="social_twitter" class="form-control" value="{{ settings.get('social_twitter', '') }}" placeholder="https://twitter.com/..."/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">YouTube URL</label>
+            <input type="url" name="social_youtube" class="form-control" value="{{ settings.get('social_youtube', '') }}" placeholder="https://youtube.com/..."/>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-6">
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <h3 class="card-title">🚀 Shiprocket Shipping Integration</h3>
+        <span class="badge" style="background:#1e293b;color:#38bdf8;border:1px solid #38bdf844;padding:4px 10px;font-size:11px;">
+          Configured in .env
+        </span>
+      </div>
+      <div class="card-body">
+        <p style="font-size:13px;color:#94a3b8;margin-bottom:16px;">
+          Shiprocket email & password are securely stored in your project's <code>.env</code> file (<code>SHIPROCKET_EMAIL</code> & <code>SHIPROCKET_PASSWORD</code>).
+        </p>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Default Pickup PIN Code</label>
+            <input type="text" name="shiprocket_pickup_pincode" class="form-control"
+                   value="{{ settings.get('shiprocket_pickup_pincode', '400001') }}" placeholder="400001" maxlength="6"/>
+            <div class="form-hint" style="font-size:11px;color:#64748b;margin-top:4px;">Warehouse PIN code for courier pickups.</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Pickup Location Name</label>
+            <input type="text" name="shiprocket_pickup_location" class="form-control"
+                   value="{{ settings.get('shiprocket_pickup_location', 'Primary') }}" placeholder="Primary"/>
+            <div class="form-hint" style="font-size:11px;color:#64748b;margin-top:4px;">Matches your registered Shiprocket warehouse location.</div>
+          </div>
+        </div>
+        <div style="margin-top:16px;padding:12px;background:#0d0d15;border-radius:8px;border:1px solid #1e293b;">
+          <div style="font-size:12px;font-weight:600;color:#cbd5e1;margin-bottom:4px;">Webhook Endpoint for Shiprocket Webhooks:</div>
+          <code style="font-size:12px;color:#a855f7;word-break:break-all;">{{ request.host_url }}api/shiprocket/webhook</code>
+          <p style="font-size:11px;color:#64748b;margin-top:6px;margin-bottom:0;">
+            Add this URL in Shiprocket Dashboard → Settings → API → Webhooks to receive automatic order tracking and delivery status updates.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary" style="padding:14px 40px;font-size:15px;">💾 Save All Settings</button>
+  </form>
+</div>
+{% endblock %}

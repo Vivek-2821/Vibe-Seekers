@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block content %}
+<section style="padding: 80px 24px; max-width: 800px; margin: 0 auto;">
+  <div style="text-align: center; margin-bottom: 60px;">
+    <h1 style="font-size: 48px; font-weight: 800; background: linear-gradient(135deg, #7c3aed, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 16px;">FAQs</h1>
+    <p style="color: #94a3b8; font-size: 18px;">Everything you need to know about shopping with Vibe Seekers.</p>
+  </div>
+
+  <div id="faq-list" style="display: flex; flex-direction: column; gap: 16px;">
+    {% set faqs = [
+      ('How long does delivery take?', 'We process and dispatch orders within 1–2 business days. Standard delivery takes 4–7 business days depending on your location. Faster options may be available at checkout.'),
+      ('What are your shipping charges?', 'We offer FREE shipping on all orders above ₹999. For orders below ₹999, a flat shipping fee of ₹79 applies.'),
+      ('What payment methods do you accept?', 'We accept Cash on Delivery (COD) and UPI payments. Simply scan the QR code or use our UPI ID at checkout.'),
+      ('Can I return or exchange a product?', 'Yes! We offer hassle-free returns and exchanges within 7 days of delivery. Items must be unworn, unwashed, and in original packaging. See our Refund Policy for full details.'),
+      ('How do I track my order?', 'Once your order is dispatched, you will receive a tracking number via email. You can also view your order status in your account under "My Orders".'),
+      ('Are your products true to size?', 'Our sizing follows standard Indian sizing. We recommend checking the size guide on each product page before ordering. When in doubt, size up for an oversized fit.'),
+      ('Do you offer gift wrapping?', 'Not currently, but we are working on it! Keep an eye on our Instagram for announcements.'),
+      ('How can I apply a coupon code?', 'On the cart page, you will see a "Apply Coupon" field. Enter your code and click Apply. The discount will reflect immediately.'),
+      ('What if I receive a damaged product?', 'We are sorry to hear that! Please contact us within 48 hours of delivery with photos of the damaged item at our email or contact form. We will arrange a replacement at no extra cost.'),
+      ('Do you restock sold-out items?', 'Some items are limited edition and will not be restocked. Others may come back — follow us on Instagram to find out first!')
+    ] %}
+
+    {% for q, a in faqs %}
+    <div class="faq-item" style="background: rgba(17,17,24,0.8); border: 1px solid #2a2a3a; border-radius: 14px; overflow: hidden; transition: all 0.2s;">
+      <button onclick="toggleFaq(this)"
+              style="width:100%; display:flex; justify-content:space-between; align-items:center; padding:20px 24px; background:none; border:none; color:#e2e8f0; font-size:16px; font-weight:600; cursor:pointer; font-family:inherit; text-align:left; gap:16px;">
+        <span>{{ q }}</span>
+        <span class="faq-icon" style="font-size:20px; flex-shrink:0; transition:transform 0.3s; color:#7c3aed;">+</span>
+      </button>
+      <div class="faq-answer" style="display:none; padding:0 24px 20px; color:#94a3b8; line-height:1.7; font-size:15px;">
+        {{ a }}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div style="text-align:center; margin-top:60px; padding:40px; background:rgba(124,58,237,0.08); border:1px solid rgba(124,58,237,0.2); border-radius:20px;">
+    <div style="font-size:32px; margin-bottom:12px;">💬</div>
+    <h3 style="color:#e2e8f0; font-size:20px; font-weight:700; margin-bottom:8px;">Still have questions?</h3>
+    <p style="color:#94a3b8; margin-bottom:20px;">Our support team is happy to help.</p>
+    <a href="{{ url_for('main.contact') }}" style="display:inline-block; background:linear-gradient(135deg,#7c3aed,#a855f7); color:#fff; padding:12px 28px; border-radius:10px; text-decoration:none; font-weight:700;">Contact Us</a>
+  </div>
+</section>
+
+<script>
+function toggleFaq(btn) {
+  const answer = btn.nextElementSibling;
+  const icon = btn.querySelector('.faq-icon');
+  const isOpen = answer.style.display !== 'none';
+  answer.style.display = isOpen ? 'none' : 'block';
+  icon.textContent = isOpen ? '+' : '−';
+  icon.style.transform = isOpen ? 'rotate(0)' : 'rotate(45deg)';
+  btn.parentElement.style.borderColor = isOpen ? '#2a2a3a' : 'rgba(124,58,237,0.4)';
+}
+</script>
+{% endblock %}

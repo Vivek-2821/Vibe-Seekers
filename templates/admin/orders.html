@@ -1,0 +1,105 @@
+{% extends 'admin/base_admin.html' %}
+{% block page_title %}Orders{% endblock %}
+{% block breadcrumb %}Admin / Orders{% endblock %}
+
+{% block content %}
+<!-- Status filter tabs -->
+<div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;align-items:center;">
+  {% for s in ['', 'pending', 'confirmed', 'shipped', 'delivered', 'cancelled'] %}
+  <a href="{{ url_for('admin.orders', status=s if s else None) }}"
+    class="btn btn-sm {% if status_filter == s or (not status_filter and not s) %}btn-primary{% else %}btn-secondary{% endif %}">
+    {{ s.capitalize() if s else 'All' }}
+  </a>
+  {% endfor %}
+  <div style="margin-left:auto;">
+    <form method="POST" action="{{ url_for('admin.sync_all_orders_tracking') }}" style="display:inline-block;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <button type="submit" class="btn btn-sm btn-secondary"
+        style="border-color:#38bdf855;color:#38bdf8;display:inline-flex;align-items:center;gap:6px;">
+        <span>🔄</span> Sync Shiprocket Status
+      </button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    {% if orders.items %}
+    <table>
+      <thead>
+        <tr>
+          <th>Order #</th>
+          <th>Customer</th>
+          <th>Items</th>
+          <th>Total</th>
+          <th>Payment</th>
+          <th>Status</th>
+          <th>Date</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in orders.items %}
+        <tr>
+          <td style="font-weight:700;color:#a855f7;">#{{ o.order_number }}</td>
+          <td>
+            <div style="font-weight:600;">{{ o.shipping_name }}</div>
+            <div style="font-size:12px;color:#64748b;">{{ o.user.email }}</div>
+          </td>
+          <td>{{ o.items.count() }} item(s)</td>
+          <td style="font-weight:700;">₹{{ "{:,.0f}".format(o.total) }}</td>
+          <td>
+            <span style="text-transform:uppercase;font-size:12px;font-weight:600;color:#64748b;">{{ o.payment_method
+              }}</span>
+            <br /><span class="badge badge-{{ o.payment_status }}" style="font-size:10px;">{{ o.payment_status }}</span>
+          </td>
+          <td>
+            <span class="badge badge-{{ o.status }}">{{ o.status }}</span>
+            {% if o.awb_code %}
+            <div style="margin-top:4px;font-size:11px;">
+              <span style="color:#38bdf8;font-family:monospace">AWB: {{ o.awb_code }}</span><br />
+              <span style="color:#64748b;font-size:10px;text-transform:uppercase">{{ o.shipment_status or 'shipped'
+                }}</span>
+            </div>
+            {% endif %}
+          </td>
+          <td style="color:#64748b;font-size:13px;">{{ o.created_at.strftime('%d %b %Y') }}</td>
+          <td style="white-space:nowrap;">
+            <div style="display:flex;gap:6px;align-items:center;">
+              <a href="{{ url_for('admin.order_detail', order_id=o.id) }}" class="btn btn-sm btn-secondary">View</a>
+              {% if (o.payment_status == 'paid' or o.payment_method == 'cod') and not o.awb_code and o.status !=
+              'cancelled' %}
+              <form method="POST" action="{{ url_for('admin.ship_order', order_id=o.id) }}" style="display:inline;"
+                onsubmit="return confirm('Ship Order #{{ o.order_number }} via Shiprocket?')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <button type="submit" class="btn btn-sm btn-primary"
+                  style="background:#DC1E1E;border-color:#DC1E1E;padding:4px 8px;font-size:11px;">Ship</button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="padding:60px;text-align:center;color:#64748b;">
+      <div style="font-size:48px;margin-bottom:16px;">📋</div>
+      <div style="font-size:18px;font-weight:600;">No orders found</div>
+    </div>
+    {% endif %}
+  </div>
+  {% if orders.pages > 1 %}
+  <div style="padding:20px;" class="pagination">
+    {% for p in orders.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+    {% if p %}
+    <a href="{{ url_for('admin.orders', page=p, status=status_filter) }}"
+      class="page-link {% if p == orders.page %}active{% endif %}">{{ p }}</a>
+    {% else %}
+    <span style="color:#64748b;">…</span>
+    {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

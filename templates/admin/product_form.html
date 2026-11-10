@@ -1,0 +1,235 @@
+{% extends 'admin/base_admin.html' %}
+{% block page_title %}{{ 'Edit Product' if product else 'Add Product' }}{% endblock %}
+{% block breadcrumb %}Admin / Products / {{ 'Edit' if product else 'Add' }}{% endblock %}
+{% block topbar_actions %}
+  <a href="{{ url_for('admin.products') }}" class="btn btn-secondary">← Back to Products</a>
+{% endblock %}
+
+{% block content %}
+<form method="POST" enctype="multipart/form-data">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+  <div style="display:grid;grid-template-columns:1fr 380px;gap:24px;align-items:start;">
+
+    <!-- Left Column -->
+    <div style="display:flex;flex-direction:column;gap:24px;">
+      <div class="card">
+        <div class="card-header"><h3 class="card-title">Basic Information</h3></div>
+        <div class="card-body">
+          <div class="form-group">
+            <label class="form-label">Product Name *</label>
+            <input type="text" name="name" class="form-control" required value="{{ product.name if product else '' }}" placeholder="e.g. Oversized Acid Wash Tee"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Description</label>
+            <textarea name="description" class="form-control" rows="5" placeholder="Describe the product…">{{ product.description if product else '' }}</textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Category</label>
+              <select name="category_id" class="form-control">
+                <option value="">— None —</option>
+                {% for c in categories %}
+                <option value="{{ c.id }}" {% if product and product.category_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">SKU</label>
+              <input type="text" name="sku" class="form-control" value="{{ product.sku if product else '' }}" placeholder="VS-001"/>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><h3 class="card-title">Pricing & Inventory</h3></div>
+        <div class="card-body">
+          <div class="form-row-3">
+            <div class="form-group">
+              <label class="form-label">Price (₹) *</label>
+              <input type="number" name="price" class="form-control" step="0.01" min="0" required value="{{ product.price if product else '' }}" placeholder="999"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Discount (%)</label>
+              <input type="number" name="discount_percent" class="form-control" step="0.1" min="0" max="100" value="{{ product.discount_percent if product else '0' }}" placeholder="0"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Total Stock</label>
+              <input type="number" name="stock" class="form-control" min="0" value="{{ product.stock if product else '0' }}" placeholder="100"/>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">📦 Shipping Dimensions & Weight (Shiprocket)</h3>
+        </div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:16px;">
+            <div class="form-group">
+              <label class="form-label">Weight (kg) *</label>
+              <input type="number" name="weight" class="form-control" step="0.01" min="0.01" value="{{ product.weight if product and product.weight else '0.5' }}" placeholder="0.5" required/>
+              <div class="form-hint" style="font-size:11px;color:#64748b;margin-top:4px;">e.g. 0.5 kg for Tees</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Length (cm) *</label>
+              <input type="number" name="length" class="form-control" step="0.1" min="1" value="{{ product.length if product and product.length else '30.0' }}" placeholder="30.0" required/>
+              <div class="form-hint" style="font-size:11px;color:#64748b;margin-top:4px;">Parcel Length</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Breadth (cm) *</label>
+              <input type="number" name="breadth" class="form-control" step="0.1" min="1" value="{{ product.breadth if product and product.breadth else '20.0' }}" placeholder="20.0" required/>
+              <div class="form-hint" style="font-size:11px;color:#64748b;margin-top:4px;">Parcel Width</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Height (cm) *</label>
+              <input type="number" name="height" class="form-control" step="0.1" min="1" value="{{ product.height if product and product.height else '5.0' }}" placeholder="5.0" required/>
+              <div class="form-hint" style="font-size:11px;color:#64748b;margin-top:4px;">Parcel Height</div>
+            </div>
+          </div>
+          <p style="font-size:12px;color:#94a3b8;margin-top:8px;margin-bottom:0;">
+            Used by Shiprocket to calculate accurate courier serviceability and shipping rates.
+          </p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><h3 class="card-title">Sizes (comma-separated)</h3></div>
+        <div class="card-body">
+          <div class="form-group">
+            <input type="text" name="sizes" class="form-control"
+                   value="{{ product.sizes.all() | map(attribute='size') | join(', ') if product else '' }}"
+                   placeholder="XS, S, M, L, XL, XXL"/>
+            <div class="form-hint">Leave blank for size-less products.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><h3 class="card-title">Colors</h3></div>
+        <div class="card-body" id="colors-container">
+          {% if product and product.colors.count() %}
+            {% for c in product.colors %}
+            <div class="color-row" style="display:flex;gap:12px;align-items:center;margin-bottom:12px;">
+              <input type="text" name="color_name[]" class="form-control" value="{{ c.color_name }}" placeholder="Color Name"/>
+              <input type="color" name="color_hex[]" value="{{ c.color_hex }}" style="width:48px;height:42px;padding:2px;background:none;border:1px solid #2a2a3a;border-radius:8px;cursor:pointer;"/>
+              <button type="button" onclick="this.parentElement.remove()" class="btn btn-sm btn-danger">✕</button>
+            </div>
+            {% endfor %}
+          {% else %}
+          <div class="color-row" style="display:flex;gap:12px;align-items:center;margin-bottom:12px;">
+            <input type="text" name="color_name[]" class="form-control" placeholder="Color Name (e.g. Black)"/>
+            <input type="color" name="color_hex[]" value="#000000" style="width:48px;height:42px;padding:2px;background:none;border:1px solid #2a2a3a;border-radius:8px;cursor:pointer;"/>
+            <button type="button" onclick="this.parentElement.remove()" class="btn btn-sm btn-danger">✕</button>
+          </div>
+          {% endif %}
+        </div>
+        <div style="padding:0 24px 20px;">
+          <button type="button" onclick="addColor()" class="btn btn-sm btn-secondary">+ Add Color</button>
+        </div>
+      </div>
+
+      {% if product %}
+      <div class="card">
+        <div class="card-header"><h3 class="card-title">Current Images</h3></div>
+        <div class="card-body" style="display:flex;flex-wrap:wrap;gap:12px;">
+          {% for img in product.images %}
+          <div style="position:relative;">
+            <img src="{{ img.image_url }}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;border:1px solid #2a2a3a;"/>
+            {% if img.is_primary %}<span style="position:absolute;top:4px;left:4px;background:#7c3aed;color:#fff;font-size:9px;padding:2px 5px;border-radius:4px;">PRIMARY</span>{% endif %}
+            <form method="POST" action="{{ url_for('admin.delete_product_image', image_id=img.id) }}" style="position:absolute;top:4px;right:4px;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+              <button type="submit" style="width:20px;height:20px;background:#ef4444;border:none;border-radius:50%;color:#fff;cursor:pointer;font-size:10px;" onclick="return confirm('Remove image?')">✕</button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="card">
+        <div class="card-header"><h3 class="card-title">Product Images</h3></div>
+        <div class="card-body">
+          <input type="file" name="images" class="form-control" multiple accept="image/*"/>
+          <div class="form-hint">First image will be the primary. Recommended: 800×1000px. Max 16MB total.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><h3 class="card-title">SEO</h3></div>
+        <div class="card-body">
+          <div class="form-group">
+            <label class="form-label">Meta Title</label>
+            <input type="text" name="meta_title" class="form-control" value="{{ product.meta_title if product else '' }}" placeholder="Leave blank to use product name"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Meta Description</label>
+            <textarea name="meta_description" class="form-control" rows="2" placeholder="160 chars max…">{{ product.meta_description if product else '' }}</textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column -->
+    <div style="display:flex;flex-direction:column;gap:24px;">
+      <div class="card">
+        <div class="card-header"><h3 class="card-title">Visibility</h3></div>
+        <div class="card-body">
+          <div class="form-check">
+            <input type="checkbox" name="is_active" id="is_active" {% if not product or product.is_active %}checked{% endif %}/>
+            <label for="is_active">Active (visible in store)</label>
+          </div>
+          <div class="form-check">
+            <input type="checkbox" name="is_new_arrival" id="is_new_arrival" {% if product and product.is_new_arrival %}checked{% endif %}/>
+            <label for="is_new_arrival">🆕 New Arrival</label>
+          </div>
+          <div class="form-check">
+            <input type="checkbox" name="is_trending" id="is_trending" {% if product and product.is_trending %}checked{% endif %}/>
+            <label for="is_trending">🔥 Trending</label>
+          </div>
+          <div class="form-check">
+            <input type="checkbox" name="is_best_selling" id="is_best_selling" {% if product and product.is_best_selling %}checked{% endif %}/>
+            <label for="is_best_selling">⭐ Best Selling</label>
+          </div>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width:100%;padding:14px;font-size:15px;">
+        {{ '💾 Save Changes' if product else '✅ Create Product' }}
+      </button>
+
+      {% if product %}
+      <div style="margin-top:12px;">
+        <button type="button" onclick="if(confirm('Permanently delete this product? This action cannot be undone.')) { document.getElementById('delete-product-form').submit(); }" class="btn btn-outline" style="width:100%;border-color:#ef4444;color:#ef4444;padding:12px;">
+          🗑️ Delete Product
+        </button>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</form>
+
+{% if product %}
+<form id="delete-product-form" method="POST" action="{{ url_for('admin.delete_product', product_id=product.id) }}" style="display:none;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function addColor() {
+  const container = document.getElementById('colors-container');
+  const row = document.createElement('div');
+  row.className = 'color-row';
+  row.style = 'display:flex;gap:12px;align-items:center;margin-bottom:12px;';
+  row.innerHTML = `
+    <input type="text" name="color_name[]" class="form-control" placeholder="Color Name"/>
+    <input type="color" name="color_hex[]" value="#ffffff" style="width:48px;height:42px;padding:2px;background:none;border:1px solid #2a2a3a;border-radius:8px;cursor:pointer;"/>
+    <button type="button" onclick="this.parentElement.remove()" class="btn btn-sm btn-danger">✕</button>
+  `;
+  container.appendChild(row);
+}
+</script>
+{% endblock %}

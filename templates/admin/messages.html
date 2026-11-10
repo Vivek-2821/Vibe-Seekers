@@ -1,0 +1,35 @@
+{% extends 'admin/base_admin.html' %}
+{% block page_title %}Contact Messages{% endblock %}
+{% block breadcrumb %}Admin / Messages{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="table-responsive">
+    {% if messages %}
+    <table>
+      <thead>
+        <tr><th>From</th><th>Subject</th><th>Message</th><th>Date</th></tr>
+      </thead>
+      <tbody>
+        {% for m in messages %}
+        <tr>
+          <td>
+            <div style="font-weight:600;">{{ m.name }}</div>
+            <div style="font-size:12px;color:#64748b;">{{ m.email }}</div>
+          </td>
+          <td>{{ m.subject or '(no subject)' }}</td>
+          <td style="max-width:400px;white-space:pre-wrap;font-size:13px;color:#94a3b8;">{{ m.message[:200] }}{% if m.message|length > 200 %}…{% endif %}</td>
+          <td style="color:#64748b;font-size:13px;white-space:nowrap;">{{ m.created_at.strftime('%d %b %Y, %H:%M') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="padding:60px;text-align:center;color:#64748b;">
+      <div style="font-size:48px;margin-bottom:16px;">📨</div>
+      <div style="font-size:18px;font-weight:600;">No messages yet</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,250 @@
+{% extends 'admin/base_admin.html' %}
+{% block page_title %}Order #{{ order.order_number }}{% endblock %}
+{% block breadcrumb %}Admin / Orders / #{{ order.order_number }}{% endblock %}
+{% block topbar_actions %}
+  {% if (order.payment_status == 'paid' or order.payment_method == 'cod') and not order.awb_code and order.status != 'cancelled' %}
+  <form method="POST" action="{{ url_for('admin.ship_order', order_id=order.id) }}" style="display:inline-block;" onsubmit="return confirm('Generate Shiprocket shipment and assign courier for Order #{{ order.order_number }}?')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+    <button type="submit" class="btn btn-primary" style="background:#DC1E1E;border-color:#DC1E1E;display:inline-flex;align-items:center;gap:6px;">
+      <span>🚀</span> Ship Order (Shiprocket)
+    </button>
+  </form>
+  {% elif order.payment_method == 'upi' and order.payment_status != 'paid' and order.status != 'cancelled' %}
+  <form method="POST" action="{{ url_for('admin.mark_order_paid', order_id=order.id) }}" style="display:inline-block;" onsubmit="return confirm('Confirm payment received for Order #{{ order.order_number }}?')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+    <button type="submit" class="btn btn-primary" style="background:#16a34a;border-color:#16a34a;display:inline-flex;align-items:center;gap:6px;">
+      <span>✓</span> Mark as Paid
+    </button>
+  </form>
+  {% endif %}
+  {% if order.awb_code and order.shipment_status not in ['delivered', 'cancelled'] %}
+  <form method="POST" action="{{ url_for('admin.cancel_shipment', order_id=order.id) }}" style="display:inline-block;" onsubmit="return confirm('Cancel this Shiprocket shipment for Order #{{ order.order_number }}?')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+    <button type="submit" class="btn btn-danger" style="display:inline-flex;align-items:center;gap:6px;">
+      <span>✕</span> Cancel Shipment
+    </button>
+  </form>
+  {% endif %}
+  <a href="{{ url_for('admin.orders') }}" class="btn btn-secondary">← Back to Orders</a>
+{% endblock %}
+
+{% block content %}
+<div style="display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start;">
+  <!-- Left: Items & Timeline -->
+  <div style="display:flex;flex-direction:column;gap:24px;">
+    <!-- Items -->
+    <div class="card">
+      <div class="card-header"><h3 class="card-title">Order Items</h3></div>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr><th>Product</th><th>Size</th><th>Color</th><th>Qty</th><th>Price</th><th>Subtotal</th></tr>
+          </thead>
+          <tbody>
+            {% for item in order.items %}
+            <tr>
+              <td>
+                <div style="display:flex;align-items:center;gap:10px;">
+                  {% if item.product_image %}<img src="{{ item.product_image }}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;"/>{% endif %}
+                  <div style="font-weight:600;">{{ item.product_name }}</div>
+                </div>
+              </td>
+              <td>{{ item.size or '—' }}</td>
+              <td>{{ item.color or '—' }}</td>
+              <td>{{ item.quantity }}</td>
+              <td>₹{{ "{:,.0f}".format(item.price) }}</td>
+              <td style="font-weight:700;">₹{{ "{:,.0f}".format(item.price * item.quantity) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div style="padding:20px;border-top:1px solid #2a2a3a;">
+        <div style="display:flex;justify-content:flex-end;">
+          <div style="min-width:240px;display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;justify-content:space-between;color:#64748b;">
+              <span>Subtotal</span><span>₹{{ "{:,.0f}".format(order.subtotal) }}</span>
+            </div>
+            {% if order.discount_amount > 0 %}
+            <div style="display:flex;justify-content:space-between;color:#4ade80;">
+              <span>Discount{% if order.coupon_code %} ({{ order.coupon_code }}){% endif %}</span>
+              <span>−₹{{ "{:,.0f}".format(order.discount_amount) }}</span>
+            </div>
+            {% endif %}
+            <div style="display:flex;justify-content:space-between;color:#64748b;">
+              <span>Shipping</span><span>{{ 'Free' if order.shipping_cost == 0 else '₹' + "{:,.0f}".format(order.shipping_cost) }}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:20px;font-weight:700;border-top:1px solid #2a2a3a;padding-top:10px;">
+              <span>Total</span><span style="color:#a855f7;">₹{{ "{:,.0f}".format(order.total) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: Info & Update -->
+  <div style="display:flex;flex-direction:column;gap:24px;">
+    <!-- Shiprocket Shipping Card -->
+    <div class="card" style="border: 1px solid #3b82f633;">
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <h3 class="card-title" style="display:flex;align-items:center;gap:8px;">
+          <span>📦</span> Shiprocket Shipment
+        </h3>
+        <span class="badge" style="background:#1e293b;color:#38bdf8;border:1px solid #38bdf844;text-transform:uppercase;font-size:11px;padding:4px 10px;">
+          {{ order.shipment_status or 'PROCESSING' }}
+        </span>
+      </div>
+      <div class="card-body">
+        <!-- 4-Stage Shipment Status Stepper -->
+        <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:6px;margin-bottom:20px;text-align:center;">
+          {% set s = order.shipment_status or 'processing' %}
+          <div style="padding:8px 4px;border-radius:6px;font-size:11px;font-weight:600;background:{{ '#10b98122' if s in ['processing', 'shipped', 'out for delivery', 'delivered'] else '#1e293b' }};color:{{ '#34d399' if s in ['processing', 'shipped', 'out for delivery', 'delivered'] else '#64748b' }};border:1px solid {{ '#10b98144' if s in ['processing', 'shipped', 'out for delivery', 'delivered'] else '#334155' }};">
+            1. Processing
+          </div>
+          <div style="padding:8px 4px;border-radius:6px;font-size:11px;font-weight:600;background:{{ '#10b98122' if s in ['shipped', 'out for delivery', 'delivered'] else '#1e293b' }};color:{{ '#34d399' if s in ['shipped', 'out for delivery', 'delivered'] else '#64748b' }};border:1px solid {{ '#10b98144' if s in ['shipped', 'out for delivery', 'delivered'] else '#334155' }};">
+            2. Shipped
+          </div>
+          <div style="padding:8px 4px;border-radius:6px;font-size:11px;font-weight:600;background:{{ '#10b98122' if s in ['out for delivery', 'delivered'] else '#1e293b' }};color:{{ '#34d399' if s in ['out for delivery', 'delivered'] else '#64748b' }};border:1px solid {{ '#10b98144' if s in ['out for delivery', 'delivered'] else '#334155' }};">
+            3. Out For Delivery
+          </div>
+          <div style="padding:8px 4px;border-radius:6px;font-size:11px;font-weight:600;background:{{ '#10b98122' if s == 'delivered' else '#1e293b' }};color:{{ '#34d399' if s == 'delivered' else '#64748b' }};border:1px solid {{ '#10b98144' if s == 'delivered' else '#334155' }};">
+            4. Delivered
+          </div>
+        </div>
+
+        {% if order.awb_code %}
+        <div style="display:flex;flex-direction:column;gap:12px;font-size:13px;line-height:1.6;color:#cbd5e1;background:#0d0d15;padding:16px;border-radius:8px;border:1px solid #1e293b;">
+          <div>
+            <span style="color:#64748b;font-size:12px;">Courier Partner:</span><br>
+            <strong style="color:#f8fafc;font-size:14px;">{{ order.courier_name or 'Shiprocket Partner' }}</strong>
+          </div>
+          <div>
+            <span style="color:#64748b;font-size:12px;">AWB Tracking Number:</span><br>
+            <strong style="color:#38bdf8;font-family:monospace;font-size:14px;">{{ order.awb_code }}</strong>
+          </div>
+          {% if order.tracking_url or order.awb_code %}
+          <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;">
+            <a href="{{ order.tracking_url or 'https://shiprocket.co/tracking/' + order.awb_code }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary" style="font-size:12px;display:inline-flex;align-items:center;gap:6px;">
+              <span>🌐</span> Track Package ↗
+            </a>
+            <form method="POST" action="{{ url_for('admin.sync_order_tracking', order_id=order.id) }}" style="display:inline-block;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+              <button type="submit" class="btn btn-sm btn-secondary" style="font-size:12px;display:inline-flex;align-items:center;gap:4px;">
+                <span>🔄</span> Sync Status
+              </button>
+            </form>
+            <form method="POST" action="{{ url_for('admin.cancel_shipment', order_id=order.id) }}" style="display:inline-block;" onsubmit="return confirm('Cancel this Shiprocket shipment?')">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+              <button type="submit" class="btn btn-sm btn-danger" style="font-size:12px;display:inline-flex;align-items:center;gap:4px;">
+                <span>✕</span> Cancel Shipment
+              </button>
+            </form>
+          </div>
+          {% endif %}
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:16px 8px;background:#0d0d15;border-radius:8px;border:1px dashed #334155;">
+          <p style="color:#94a3b8;font-size:13px;margin-bottom:12px;">
+            Shipment has not been dispatched to Shiprocket yet.
+          </p>
+          {% if (order.payment_status == 'paid' or order.payment_method == 'cod') and order.status != 'cancelled' %}
+          <form method="POST" action="{{ url_for('admin.ship_order', order_id=order.id) }}" onsubmit="return confirm('Create Shiprocket shipment and assign courier?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <button type="submit" class="btn btn-primary btn-sm" style="background:#DC1E1E;border-color:#DC1E1E;">
+              🚀 Ship Order Now
+            </button>
+          </form>
+          {% else %}
+          <p style="font-size:11px;color:#f59e0b;margin-bottom:0;">
+            ⚠️ Requires payment / confirmation before shipping.
+          </p>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Status card -->
+    <div class="card">
+      <div class="card-header"><h3 class="card-title">Status</h3></div>
+      <div class="card-body">
+        <div style="text-align:center;margin-bottom:20px;">
+          <span class="badge badge-{{ order.status }}" style="font-size:16px;padding:8px 20px;">{{ order.status.upper() }}</span>
+        </div>
+        <form method="POST" action="{{ url_for('admin.update_order_status', order_id=order.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+          <div class="form-group">
+            <label class="form-label">Update Status</label>
+            <select name="status" class="form-control">
+              {% for s in ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'] %}
+              <option value="{{ s }}" {% if order.status == s %}selected{% endif %}>{{ s.capitalize() }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tracking Number</label>
+            <input type="text" name="tracking_number" class="form-control" value="{{ order.tracking_number or order.awb_code or '' }}" placeholder="AWB / Tracking ID"/>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width:100%;">Update Order</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Shipping -->
+    <div class="card">
+      <div class="card-header"><h3 class="card-title">Shipping Address</h3></div>
+      <div class="card-body" style="font-size:14px;line-height:1.8;color:#cbd5e1;">
+        <strong>{{ order.shipping_name }}</strong><br/>
+        {{ order.shipping_phone }}<br/>
+        {% if order.shipping_email %}<span style="color:#94a3b8;">{{ order.shipping_email }}</span><br/>{% endif %}
+        {{ order.shipping_address }}<br/>
+        {{ order.shipping_city }}, {{ order.shipping_state }} – {{ order.shipping_pincode }}<br/>
+        {{ order.shipping_country }}
+      </div>
+    </div>
+
+    <!-- Payment -->
+    <div class="card">
+      <div class="card-header"><h3 class="card-title">Payment</h3></div>
+      <div class="card-body" style="font-size:14px;line-height:2;color:#cbd5e1;">
+        <div><strong>Method:</strong> {% if order.payment_method == 'razorpay' %}Razorpay (Online){% elif order.payment_method == 'cod' %}Cash on Delivery (COD){% else %}{{ order.payment_method.upper() }}{% endif %}</div>
+        <div><strong>Payment Status:</strong> 
+          <span class="badge badge-{{ 'success' if order.payment_status == 'paid' else ('warning' if order.payment_status == 'pending' else ('info' if order.payment_status == 'refunded' else 'danger')) }}" style="font-weight:700;text-transform:uppercase;">
+            {{ order.payment_status }}
+          </span>
+        </div>
+        {% if order.razorpay_payment_id %}
+        <div><strong>Payment ID:</strong> <code style="color:#38bdf8;">{{ order.razorpay_payment_id }}</code></div>
+        {% endif %}
+        {% if order.razorpay_order_id %}
+        <div><strong>Razorpay Order ID:</strong> <code style="color:#94a3b8;">{{ order.razorpay_order_id }}</code></div>
+        {% endif %}
+        {% if order.notes %}<div style="margin-top:8px;padding:10px;background:#1a1a24;border-radius:8px;color:#94a3b8;font-size:13px;">{{ order.notes }}</div>{% endif %}
+
+        {% if order.payment_status == 'pending' and order.payment_method != 'cod' %}
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid #2a2a3a;">
+          <form method="POST" action="{{ url_for('admin.mark_order_paid', order_id=order.id) }}" onsubmit="return confirm('Mark this order as paid manually?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-sm btn-secondary" style="width:100%;padding:10px;">
+              ✓ Mark as Paid Manually
+            </button>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Customer -->
+    <div class="card">
+      <div class="card-header"><h3 class="card-title">Customer</h3></div>
+      <div class="card-body" style="font-size:14px;line-height:2;color:#cbd5e1;">
+        <div><strong>{{ order.user.name }}</strong></div>
+        <div>{{ order.user.email }}</div>
+        <div>Joined: {{ order.user.created_at.strftime('%d %b %Y') }}</div>
+        <a href="{{ url_for('admin.users') }}" class="btn btn-sm btn-secondary" style="margin-top:8px;">View All Orders by User</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
