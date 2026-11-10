@@ -93,3 +93,37 @@ def format_price(amount):
 
 def generate_reset_token():
     return secrets.token_urlsafe(32)
+
+
+def deduct_product_stock(product, quantity, size=None):
+    """
+    Deduct ordered quantity from total product stock and specific size stock if size is provided.
+    Keeps total stock in sync with size stocks.
+    """
+    if not product or quantity <= 0:
+        return
+    if size:
+        from app.models import ProductSize
+        ps = ProductSize.query.filter_by(product_id=product.id).filter(
+            ProductSize.size.ilike(str(size).strip())
+        ).first()
+        if ps:
+            ps.stock = max(0, int(ps.stock or 0) - quantity)
+    product.stock = max(0, int(product.stock or 0) - quantity)
+
+
+def restore_product_stock(product, quantity, size=None):
+    """
+    Restore quantity to total product stock and specific size stock if size is provided.
+    """
+    if not product or quantity <= 0:
+        return
+    if size:
+        from app.models import ProductSize
+        ps = ProductSize.query.filter_by(product_id=product.id).filter(
+            ProductSize.size.ilike(str(size).strip())
+        ).first()
+        if ps:
+            ps.stock = int(ps.stock or 0) + quantity
+    product.stock = int(product.stock or 0) + quantity
+

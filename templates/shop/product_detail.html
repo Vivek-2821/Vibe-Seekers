@@ -56,20 +56,21 @@
       <div style="margin:24px 0;height:1px;background:var(--border)"></div>
 
       <!-- Stock Status & Urgency -->
-      {% if product.stock > 5 %}
-        <p class="stock-status in-stock" style="margin-bottom:24px;display:flex;align-items:center;gap:8px">
+      {% set current_stock = product.total_stock %}
+      {% if current_stock > 5 %}
+        <p class="stock-status in-stock" id="pdp-stock-status" style="margin-bottom:24px;display:flex;align-items:center;gap:8px">
           <span class="stock-dot"></span>
-          <span style="color:#4ade80;font-weight:600">✓ In Stock (Dispatches within 24 hours)</span>
+          <span id="pdp-stock-message" style="color:#4ade80;font-weight:600">✓ In Stock (Dispatches within 24 hours)</span>
         </p>
-      {% elif product.stock > 0 %}
-        <p class="stock-status low-stock" style="margin-bottom:24px;display:flex;align-items:center;gap:8px">
+      {% elif current_stock > 0 %}
+        <p class="stock-status low-stock" id="pdp-stock-status" style="margin-bottom:24px;display:flex;align-items:center;gap:8px">
           <span class="stock-dot" style="background:#f59e0b;box-shadow:0 0 10px #f59e0b"></span>
-          <span style="color:#fbbf24;font-weight:700">⚡ Only {{ product.stock }} left in stock – order soon!</span>
+          <span id="pdp-stock-message" style="color:#fbbf24;font-weight:700">⚡ Only {{ current_stock }} left in stock – order soon!</span>
         </p>
       {% else %}
-        <p class="stock-status out-of-stock" style="margin-bottom:24px;display:flex;align-items:center;gap:8px">
+        <p class="stock-status out-of-stock" id="pdp-stock-status" style="margin-bottom:24px;display:flex;align-items:center;gap:8px">
           <span class="stock-dot" style="background:#ef4444"></span>
-          <span style="color:#f87171;font-weight:600">✕ Currently Out of Stock</span>
+          <span id="pdp-stock-message" style="color:#f87171;font-weight:600">✕ Currently Out of Stock</span>
         </p>
       {% endif %}
 
@@ -83,12 +84,21 @@
         <!-- Sizes -->
         {% if sizes %}
         <div class="form-group">
-          <label class="form-label">Size</label>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+            <label class="form-label" style="margin-bottom:0">Size</label>
+            <span id="size-stock-feedback" style="font-size:0.78rem;font-weight:600;color:var(--text-muted);"></span>
+          </div>
           <div class="size-selector" id="size-selector">
             {% for s in sizes %}
-            <button type="button" class="size-btn {% if s.stock == 0 %}oos{% endif %}"
-                    onclick="selectSize(this, '{{ s.size }}')"
-                    {% if s.stock == 0 %}disabled{% endif %}>{{ s.size }}</button>
+            {% set s_stock = s.effective_stock %}
+            {% set s_available = s.is_available %}
+            <button type="button" class="size-btn {% if not s_available %}oos{% endif %}"
+                    data-size="{{ s.size }}"
+                    data-stock="{{ s_stock }}"
+                    onclick="selectSize(this, '{{ s.size }}', {{ s_stock }})"
+                    {% if not s_available %}disabled title="Size {{ s.size }} is out of stock"{% endif %}>
+              {{ s.size }}
+            </button>
             {% endfor %}
           </div>
           <a href="#" id="size-guide-link" onclick="openSizeGuide();return false;" style="font-size:.78rem;color:var(--text-muted);margin-top:8px;display:inline-block;text-decoration:underline dotted">📏 Size Guide</a>
@@ -113,15 +123,15 @@
           <label class="form-label">Quantity</label>
           <div class="qty-control">
             <button type="button" class="qty-btn" onclick="changeQty(-1)">−</button>
-            <input type="number" name="quantity" class="qty-input" value="1" min="1" max="{{ product.stock }}" id="qty-input">
+            <input type="number" name="quantity" class="qty-input" value="1" min="1" max="{{ current_stock if current_stock > 0 else 1 }}" id="qty-input">
             <button type="button" class="qty-btn" onclick="changeQty(1)">+</button>
           </div>
         </div>
 
         <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:24px">
-          {% if product.stock > 0 %}
-            <button type="submit" class="btn btn-primary" style="flex:1;min-width:160px">Add to Cart</button>
-            <button type="submit" formaction="{{ url_for('cart.checkout') }}" class="btn btn-outline" style="flex:1;min-width:160px" onclick="this.form.action='{{ url_for('cart.add_to_cart') }}'">Buy Now</button>
+          {% if current_stock > 0 %}
+            <button type="submit" class="btn btn-primary" id="btn-add-to-cart" style="flex:1;min-width:160px">Add to Cart</button>
+            <button type="submit" formaction="{{ url_for('cart.checkout') }}" class="btn btn-outline" id="btn-buy-now" style="flex:1;min-width:160px" onclick="this.form.action='{{ url_for('cart.add_to_cart') }}'">Buy Now</button>
           {% else %}
             <div style="width:100%;margin-top:10px;">
               <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:10px;padding:16px;text-align:center;">
@@ -454,13 +464,43 @@ function triggerStickyAddToCart() {
     }, { passive: true });
   }
 })();
-function selectSize(btn, size) {
+function selectSize(btn, size, stock) {
+  if (btn.hasAttribute('disabled') || btn.classList.contains('oos')) return;
   document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('selected-size').value = size;
   const hint = document.getElementById('size-hint');
   if (hint) hint.style.display = 'none';
+
+  // Adjust max quantity for selected size
+  const qtyInput = document.getElementById('qty-input');
+  if (qtyInput && typeof stock !== 'undefined' && stock > 0) {
+    qtyInput.max = stock;
+    if (parseInt(qtyInput.value) > stock) {
+      qtyInput.value = stock;
+    }
+  }
+
+  // Update size stock feedback
+  const feedback = document.getElementById('size-stock-feedback');
+  if (feedback && typeof stock !== 'undefined') {
+    if (stock <= 5 && stock > 0) {
+      feedback.innerHTML = `<span style="color:#fbbf24">⚡ Only ${stock} left in ${size}!</span>`;
+    } else if (stock > 5) {
+      feedback.innerHTML = `<span style="color:#4ade80">✓ Size ${size} available</span>`;
+    } else {
+      feedback.innerHTML = `<span style="color:#f87171">✕ Size ${size} out of stock</span>`;
+    }
+  }
 }
+
+// Auto-select first available size on load
+document.addEventListener('DOMContentLoaded', function() {
+  const firstAvailable = document.querySelector('.size-btn:not(.oos):not([disabled])');
+  if (firstAvailable) {
+    firstAvailable.click();
+  }
+});
 function selectColor(btn, color) {
   document.querySelectorAll('.color-dot').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');

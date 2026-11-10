@@ -101,6 +101,40 @@ with app.app_context():
     if updated:
         print(f"  ✅ Added default product image to {updated} product(s).")
 
+    # ─── 5. REPAIR SIZE STOCKS ───────────────────────────────────────────────
+    from app.models import ProductSize
+    all_products = Product.query.all()
+    repaired_sizes = 0
+    for p in all_products:
+        p_sizes = p.sizes.all()
+        if not p_sizes and (p.stock or 0) > 0:
+            # Create standard sizes S, M, L, XL
+            num_s = 4
+            base = p.stock // num_s
+            rem = p.stock % num_s
+            std_sizes = ['S', 'M', 'L', 'XL']
+            for i, sz in enumerate(std_sizes):
+                sz_stk = base + (1 if i < rem else 0)
+                db.session.add(ProductSize(product_id=p.id, size=sz, stock=sz_stk))
+            repaired_sizes += 1
+            print(f"  👕 Added standard sizes S, M, L, XL for product '{p.name}' (Stock: {p.stock})")
+        elif p_sizes:
+            has_positive = any(s.stock is not None and s.stock > 0 for s in p_sizes)
+            if not has_positive and (p.stock or 0) > 0:
+                num_s = len(p_sizes)
+                base = p.stock // num_s
+                rem = p.stock % num_s
+                for i, s in enumerate(p_sizes):
+                    s.stock = base + (1 if i < rem else 0)
+                repaired_sizes += 1
+                print(f"  ✅ Fixed 0-stock sizes for product '{p.name}' -> {[(s.size, s.stock) for s in p_sizes]}")
+            else:
+                for s in p_sizes:
+                    if s.stock is None:
+                        s.stock = 0
+                p.stock = sum((s.stock or 0) for s in p_sizes)
+                print(f"  📦 Verified size stocks for '{p.name}' -> {[(s.size, s.stock) for s in p_sizes]} (Total: {p.stock})")
+
     db.session.commit()
     print("\n✅ All fixes applied successfully!")
     print("\nSummary:")

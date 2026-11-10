@@ -306,6 +306,32 @@ def create_app(config_name=None):
                 app.logger.error(f"Error seeding default t-shirt: {e}")
                 db.session.rollback()
 
+            # Ensure all products with sizes have valid per-size stock values
+            try:
+                from .models import Product, ProductSize
+                all_prods = Product.query.all()
+                for p in all_prods:
+                    p_sizes = p.sizes.all()
+                    if p_sizes:
+                        has_per_size_positive = any(s.stock is not None and s.stock > 0 for s in p_sizes)
+                        if not has_per_size_positive and (p.stock or 0) > 0:
+                            # Distribute product stock evenly across sizes
+                            num_sizes = len(p_sizes)
+                            base_stock = p.stock // num_sizes
+                            remainder = p.stock % num_sizes
+                            for idx, s in enumerate(p_sizes):
+                                s.stock = base_stock + (1 if idx < remainder else 0)
+                        elif has_per_size_positive:
+                            # Sync total product stock to sum of size stocks
+                            p.stock = sum((s.stock or 0) for s in p_sizes)
+                        for s in p_sizes:
+                            if s.stock is None:
+                                s.stock = 0
+                db.session.commit()
+            except Exception as e:
+                app.logger.error(f"Error auto-repairing size stocks: {e}")
+                db.session.rollback()
+
     return app
 
 

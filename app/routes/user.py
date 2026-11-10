@@ -4,6 +4,7 @@ User dashboard routes
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 from app.models import Order, Address, Wishlist, CartItem
+from app.utils import restore_product_stock
 from app import db
 
 user_bp = Blueprint('user', __name__)
@@ -99,7 +100,7 @@ def cancel_order(order_number):
     # Restore stock
     for item in order.items:
         if item.product:
-            item.product.stock += item.quantity
+            restore_product_stock(item.product, item.quantity, item.size)
     
     db.session.commit()
     flash(f'Order #{order.order_number} has been cancelled.', 'success')

@@ -179,6 +179,42 @@ class Product(db.Model):
     @property
     def review_count(self):
         return self.reviews.filter_by(is_approved=True).count()
+
+    @property
+    def total_stock(self):
+        """
+        Unified total stock across sizes or standalone product stock.
+        If sizes are defined and any size has explicit stock > 0, return the sum of size stocks.
+        Otherwise, return product.stock.
+        """
+        size_list = self.sizes.all()
+        if size_list and any(int(s.stock or 0) > 0 for s in size_list):
+            return sum(int(s.stock or 0) for s in size_list)
+        return int(self.stock or 0)
+
+    def get_size_stock(self, size_name):
+        """
+        Return the available stock for a given size.
+        If size is not specified or product has no sizes, returns total_stock.
+        If sizes exist:
+          - If any size has stock > 0, returns that specific size's stock (or 0 if size not found).
+          - If all sizes have 0/None stock but product.stock > 0, returns product.stock.
+        """
+        if not size_name:
+            return self.total_stock
+        size_list = self.sizes.all()
+        if not size_list:
+            return int(self.stock or 0)
+        s_obj = next((s for s in size_list if s.size.upper() == size_name.upper()), None)
+        if not s_obj:
+            return 0
+        has_per_size_stock = any(int(s.stock or 0) > 0 for s in size_list)
+        if has_per_size_stock:
+            return int(s_obj.stock or 0)
+        return int(self.stock or 0)
+
+    def is_size_available(self, size_name):
+        return self.get_size_stock(size_name) > 0
     
     def __repr__(self):
         return f'<Product {self.name}>'
@@ -202,6 +238,24 @@ class ProductSize(db.Model):
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     size = db.Column(db.String(20), nullable=False)
     stock = db.Column(db.Integer, default=0)
+
+    @property
+    def effective_stock(self):
+        """
+        Effective stock for this size:
+        If any size for this product has explicit stock > 0, use this size's stock.
+        Otherwise fallback to product total stock if available.
+        """
+        if self.product:
+            all_sizes = self.product.sizes.all()
+            if any(int(s.stock or 0) > 0 for s in all_sizes):
+                return max(0, int(self.stock or 0))
+            return max(0, int(self.product.stock or 0))
+        return max(0, int(self.stock or 0))
+
+    @property
+    def is_available(self):
+        return self.effective_stock > 0
 
 
 class ProductColor(db.Model):

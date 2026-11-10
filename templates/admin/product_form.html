@@ -95,13 +95,34 @@
       </div>
 
       <div class="card">
-        <div class="card-header"><h3 class="card-title">Sizes (comma-separated)</h3></div>
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <h3 class="card-title">Sizes & Per-Size Stock</h3>
+          <div style="display:flex;gap:8px;">
+            <button type="button" onclick="addStandardClothingSizes()" class="btn btn-sm btn-outline" style="font-size:12px;">⚡ Add S, M, L, XL</button>
+            <button type="button" onclick="addSizeRow()" class="btn btn-sm btn-secondary" style="font-size:12px;">+ Add Size</button>
+          </div>
+        </div>
         <div class="card-body">
-          <div class="form-group">
-            <input type="text" name="sizes" class="form-control"
-                   value="{{ product.sizes.all() | map(attribute='size') | join(', ') if product else '' }}"
-                   placeholder="XS, S, M, L, XL, XXL"/>
-            <div class="form-hint">Leave blank for size-less products.</div>
+          <div id="sizes-container">
+            {% if product and product.sizes.count() %}
+              {% for s in product.sizes.all() %}
+              <div class="size-row" style="display:flex;gap:12px;align-items:center;margin-bottom:12px;">
+                <input type="text" name="size_name[]" class="form-control" value="{{ s.size }}" placeholder="Size (e.g. S, M, L, XL)" style="flex:1;text-transform:uppercase;" required/>
+                <div style="display:flex;align-items:center;gap:6px;flex:1;">
+                  <span style="font-size:12px;color:#94a3b8;white-space:nowrap;">Stock:</span>
+                  <input type="number" name="size_stock[]" class="form-control size-stock-input" value="{{ s.stock if s.stock is not none else '0' }}" min="0" placeholder="0" oninput="calculateTotalStock()" style="flex:1;"/>
+                </div>
+                <button type="button" onclick="this.closest('.size-row').remove();calculateTotalStock();" class="btn btn-sm btn-danger">✕</button>
+              </div>
+              {% endfor %}
+            {% else %}
+              <div id="no-sizes-hint" style="font-size:13px;color:#94a3b8;margin-bottom:12px;">
+                No sizes defined. Click <strong>⚡ Add S, M, L, XL</strong> or <strong>+ Add Size</strong> to set stock per size. (Or leave blank for one-size products).
+              </div>
+            {% endif %}
+          </div>
+          <div class="form-hint" style="margin-top:8px;">
+            💡 Entering stock for each size will automatically update the <strong>Total Stock</strong> field above.
           </div>
         </div>
       </div>
@@ -219,6 +240,54 @@
 
 {% block extra_js %}
 <script>
+function calculateTotalStock() {
+  const stockInputs = document.querySelectorAll('.size-stock-input');
+  if (stockInputs.length > 0) {
+    let total = 0;
+    stockInputs.forEach(inp => {
+      const v = parseInt(inp.value, 10);
+      if (!isNaN(v) && v > 0) {
+        total += v;
+      }
+    });
+    const totalStockInput = document.querySelector('input[name="stock"]');
+    if (totalStockInput) {
+      totalStockInput.value = total;
+    }
+  }
+}
+
+function addSizeRow(sizeName = '', stockVal = 10) {
+  const container = document.getElementById('sizes-container');
+  const hint = document.getElementById('no-sizes-hint');
+  if (hint) hint.remove();
+
+  const row = document.createElement('div');
+  row.className = 'size-row';
+  row.style = 'display:flex;gap:12px;align-items:center;margin-bottom:12px;';
+  row.innerHTML = `
+    <input type="text" name="size_name[]" class="form-control" value="${sizeName}" placeholder="Size (e.g. S, M, L, XL)" style="flex:1;text-transform:uppercase;" required/>
+    <div style="display:flex;align-items:center;gap:6px;flex:1;">
+      <span style="font-size:12px;color:#94a3b8;white-space:nowrap;">Stock:</span>
+      <input type="number" name="size_stock[]" class="form-control size-stock-input" value="${stockVal}" min="0" placeholder="0" oninput="calculateTotalStock()" style="flex:1;"/>
+    </div>
+    <button type="button" onclick="this.closest('.size-row').remove();calculateTotalStock();" class="btn btn-sm btn-danger">✕</button>
+  `;
+  container.appendChild(row);
+  calculateTotalStock();
+}
+
+function addStandardClothingSizes() {
+  const container = document.getElementById('sizes-container');
+  const existingRows = container.querySelectorAll('.size-row');
+  if (existingRows.length > 0 && !confirm('Replace existing sizes with standard S, M, L, XL?')) {
+    return;
+  }
+  container.innerHTML = '';
+  const standardSizes = ['S', 'M', 'L', 'XL'];
+  standardSizes.forEach(s => addSizeRow(s, 10));
+}
+
 function addColor() {
   const container = document.getElementById('colors-container');
   const row = document.createElement('div');

@@ -8,7 +8,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from app.models import (User, Product, Category, Order, OrderItem, Coupon,
                         ContactMessage, NewsletterSubscriber, SiteSetting, Banner,
                         ProductImage, ProductSize, ProductColor, Review)
-from app.utils import save_image, slugify
+from app.utils import save_image, slugify, restore_product_stock
 from app import db
 from datetime import datetime, timedelta
 import json
@@ -156,21 +156,8 @@ def add_product():
                                        is_primary=(i == 0), sort_order=i)
                     db.session.add(img)
         
-        # Sizes
-        sizes_str = request.form.get('sizes', '')
-        for s in sizes_str.split(','):
-            s = s.strip()
-            if s:
-                ps = ProductSize(product_id=product.id, size=s, stock=product.stock)
-                db.session.add(ps)
-        
-        # Colors
-        color_names = request.form.getlist('color_name[]')
-        color_hexes = request.form.getlist('color_hex[]')
-        for cn, ch in zip(color_names, color_hexes):
-            if cn.strip():
-                pc = ProductColor(product_id=product.id, color_name=cn.strip(), color_hex=ch)
-                db.session.add(pc)
+        # Save sizes, per-size stock, and colors
+        _save_product_sizes_and_colors(product)
         
         db.session.commit()
         flash(f'Product "{product.name}" added successfully!', 'success')
@@ -178,6 +165,56 @@ def add_product():
     
     return render_template('admin/product_form.html', product=None, categories=categories,
                            title='Add Product – Admin')
+
+
+def _save_product_sizes_and_colors(product):
+    """
+    Saves or updates sizes, per-size stock levels, and colors.
+    Calculates total product stock from size stocks if per-size stocks are provided.
+    """
+    size_names = request.form.getlist('size_name[]')
+    size_stocks = request.form.getlist('size_stock[]')
+    sizes_str = request.form.get('sizes', '').strip()
+
+    # Clear existing sizes
+    ProductSize.query.filter_by(product_id=product.id).delete()
+
+    total_size_stock = 0
+    has_valid_sizes = False
+
+    if size_names:
+        for s_name, s_stk in zip(size_names, size_stocks):
+            s_name = s_name.strip().upper()
+            if s_name:
+                has_valid_sizes = True
+                try:
+                    s_int = max(0, int(s_stk))
+                except (ValueError, TypeError):
+                    s_int = 0
+                total_size_stock += s_int
+                db.session.add(ProductSize(product_id=product.id, size=s_name, stock=s_int))
+    elif sizes_str:
+        s_list = [s.strip().upper() for s in sizes_str.split(',') if s.strip()]
+        if s_list:
+            has_valid_sizes = True
+            current_total = int(product.stock or 0)
+            per_size = max(1, current_total // len(s_list)) if current_total > 0 else 0
+            for s_name in s_list:
+                total_size_stock += per_size
+                db.session.add(ProductSize(product_id=product.id, size=s_name, stock=per_size))
+
+    # Keep total product stock consistent
+    if has_valid_sizes and total_size_stock > 0:
+        product.stock = total_size_stock
+
+    # Colors
+    color_names = request.form.getlist('color_name[]')
+    color_hexes = request.form.getlist('color_hex[]')
+    ProductColor.query.filter_by(product_id=product.id).delete()
+    for cn, ch in zip(color_names, color_hexes):
+        cn_clean = cn.strip()
+        if cn_clean:
+            db.session.add(ProductColor(product_id=product.id, color_name=cn_clean, color_hex=ch.strip() or '#000000'))
 
 
 @admin_bp.route('/products/<int:product_id>/edit', methods=['GET', 'POST'])
@@ -218,6 +255,9 @@ def edit_product(product_id):
                                        is_primary=(existing_count == 0 and i == 0),
                                        sort_order=existing_count + i)
                     db.session.add(img)
+
+        # Save sizes, per-size stock, and colors
+        _save_product_sizes_and_colors(product)
         
         db.session.commit()
         flash(f'Product "{product.name}" updated!', 'success')
@@ -439,7 +479,7 @@ def refund_order(order_id):
         # Restore inventory stock
         for oi in order.items:
             if oi.product:
-                oi.product.stock += oi.quantity
+                restore_product_stock(oi.product, oi.quantity, oi.size)
 
         db.session.commit()
         flash(f'Successfully refunded ₹{order.total:,.0f} via Razorpay (Refund ID: {refund_res.get("id")}). Inventory restored.', 'success')

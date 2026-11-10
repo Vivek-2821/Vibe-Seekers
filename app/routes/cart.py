@@ -8,7 +8,7 @@ from flask import (Blueprint, render_template, redirect, url_for, flash,
                    request, jsonify, session, current_app)
 from flask_login import login_required, current_user
 from app.models import CartItem, Product, Order, OrderItem, Coupon, Address, SiteSetting
-from app.utils import generate_order_number
+from app.utils import generate_order_number, deduct_product_stock, restore_product_stock
 from app.email import send_order_confirmation_email
 from app.shiprocket import check_serviceability
 from app import db, csrf
@@ -107,28 +107,43 @@ def view_cart():
 def add_to_cart():
     product_id = request.form.get('product_id', type=int)
     quantity = request.form.get('quantity', 1, type=int)
-    size = request.form.get('size', '')
-    color = request.form.get('color', '')
+    size = (request.form.get('size') or '').strip()
+    color = (request.form.get('color') or '').strip()
 
     product = Product.query.get_or_404(product_id)
 
-    if product.stock <= 0:
+    if product.total_stock <= 0:
         flash('Sorry, this product is out of stock.', 'error')
         return redirect(request.referrer or url_for('shop.product_detail', slug=product.slug))
+
+    # Check size requirement and size stock if product offers sizes
+    product_sizes = product.sizes.all()
+    if product_sizes:
+        if not size:
+            flash('Please select a size first.', 'warning')
+            return redirect(request.referrer or url_for('shop.product_detail', slug=product.slug))
+        size_stock = product.get_size_stock(size)
+        if size_stock <= 0:
+            flash(f'Sorry, size {size} is currently out of stock.', 'error')
+            return redirect(request.referrer or url_for('shop.product_detail', slug=product.slug))
+        max_allowed = size_stock
+    else:
+        max_allowed = product.total_stock
 
     existing = CartItem.query.filter_by(
         user_id=current_user.id, product_id=product_id, size=size, color=color
     ).first()
 
     if existing:
-        existing.quantity = min(existing.quantity + quantity, product.stock)
+        existing.quantity = min(existing.quantity + quantity, max_allowed)
     else:
         item = CartItem(user_id=current_user.id, product_id=product_id,
-                        quantity=quantity, size=size, color=color)
+                        quantity=min(quantity, max_allowed), size=size, color=color)
         db.session.add(item)
 
     db.session.commit()
-    flash(f'<strong>{product.name}</strong> added to cart!', 'success')
+    size_label = f" (Size {size})" if size else ""
+    flash(f'<strong>{product.name}</strong>{size_label} added to cart!', 'success')
 
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         count = CartItem.query.filter_by(user_id=current_user.id).count()
@@ -148,7 +163,8 @@ def update_cart():
     if quantity <= 0:
         db.session.delete(item)
     else:
-        item.quantity = min(quantity, item.product.stock)
+        max_allowed = item.product.get_size_stock(item.size) if (item.product and item.size) else (item.product.total_stock if item.product else 99)
+        item.quantity = min(quantity, max_allowed)
 
     db.session.commit()
     return redirect(url_for('cart.view_cart'))
@@ -429,7 +445,7 @@ def checkout():
         # Deduct stock and clear cart immediately for COD
         for item in cart_items:
             if item.product:
-                item.product.stock = max(0, item.product.stock - item.quantity)
+                deduct_product_stock(item.product, item.quantity, item.size)
         if coupon:
             coupon.uses = (coupon.uses or 0) + 1
         if totals['coupon_code'] == 'FIRST10' and not coupon:
@@ -514,7 +530,7 @@ def verify_payment():
     # Deduct stock and clear cart
     for oi in order.items:
         if oi.product:
-            oi.product.stock = max(0, oi.product.stock - oi.quantity)
+            deduct_product_stock(oi.product, oi.quantity, oi.size)
 
     coupon_code = session.get('coupon_code')
     if coupon_code:
