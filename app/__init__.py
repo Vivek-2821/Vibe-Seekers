@@ -65,6 +65,24 @@ def create_app(config_name=None):
     app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'uploads')
     app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload
     app.config['WTF_CSRF_ENABLED'] = True
+
+    # Trusted Origins and Allowed Hosts for CSRF and CORS
+    app.config['WTF_CSRF_TRUSTED_ORIGINS'] = [
+        'https://vibeseekers.in',
+        'https://www.vibeseekers.in',
+        'http://vibeseekers.in',
+        'http://www.vibeseekers.in',
+        'https://vibe-seekers.onrender.com',
+        'http://localhost:5000',
+        'http://127.0.0.1:5000',
+    ]
+    app.config['ALLOWED_HOSTS'] = [
+        'vibeseekers.in',
+        'www.vibeseekers.in',
+        'vibe-seekers.onrender.com',
+        'localhost',
+        '127.0.0.1',
+    ]
     
     # Mail config (update with real SMTP for production)
     app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
@@ -111,6 +129,30 @@ def create_app(config_name=None):
     from app.routes.errors import register_error_handlers
     register_error_handlers(app)
 
+    # CSRF error handler returning JSON for AJAX requests
+    from flask_wtf.csrf import CSRFError
+    @app.errorhandler(CSRFError)
+    def handle_csrf_error(e):
+        app.logger.warning(f"CSRF Error: {e.description} (Origin: {request.headers.get('Origin')})")
+        if (
+            request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+            request.is_json or
+            'application/json' in request.headers.get('Accept', '')
+        ):
+            from flask import jsonify
+            return jsonify({
+                'success': False,
+                'error': f"CSRF validation failed ({e.description}). Please refresh the page.",
+                'errors': [f"Security token expired ({e.description}). Please refresh the page."]
+            }), 400
+        from flask import flash, redirect, url_for
+        flash("Your security token has expired. Please refresh the page and try again.", "error")
+        return redirect(request.referrer or url_for('main.index'))
+
+    # ProxyFix for Render HTTPS / Reverse Proxy Header Support
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
+
     # Context processors
     @app.context_processor
     def inject_globals():
@@ -152,10 +194,14 @@ def create_app(config_name=None):
             now=_dt.utcnow()
         )
 
-    # Domain Canonicalization & HTTPS Enforcement
+    # Domain Canonicalization & HTTPS Enforcement (Only for GET/HEAD to protect POST data)
     @app.before_request
     def enforce_canonical_and_ssl():
         if config_name == 'testing' or app.debug:
+            return None
+
+        # Never redirect POST, PUT, DELETE requests (prevents browser method-switching to GET & dropping payloads)
+        if request.method not in ('GET', 'HEAD'):
             return None
 
         host = (request.host or '').lower().split(':')[0]
@@ -173,7 +219,7 @@ def create_app(config_name=None):
             from flask import redirect
             return redirect(f"https://{target_host}{request.path}{qs}", code=301)
 
-    # Performance & Security Headers
+    # Performance, Security & CORS Headers
     @app.after_request
     def optimize_response(response):
         # Security headers
@@ -183,6 +229,21 @@ def create_app(config_name=None):
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
         if not app.debug:
             response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+
+        # CORS Headers for vibeseekers.in and allowed domains
+        origin = request.headers.get('Origin')
+        allowed_origins = {
+            'https://vibeseekers.in',
+            'https://www.vibeseekers.in',
+            'http://vibeseekers.in',
+            'http://www.vibeseekers.in',
+            'https://vibe-seekers.onrender.com'
+        }
+        if origin in allowed_origins:
+            response.headers['Access-Control-Allow-Origin'] = origin
+            response.headers['Access-Control-Allow-Credentials'] = 'true'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, X-CSRFToken, X-Requested-With, Accept'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
 
         if request.path.startswith('/static/'):
             response.headers['Cache-Control'] = 'public, max-age=86400'

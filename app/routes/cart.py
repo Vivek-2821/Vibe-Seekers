@@ -293,231 +293,237 @@ def checkout():
     razorpay_key_id = os.environ.get('RAZORPAY_KEY_ID', '').strip()
 
     if request.method == 'POST':
-        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json
-        if not check_rate_limit('checkout', max_requests=15, window_seconds=300):
-            msg = 'Too many requests. Please wait a few minutes before trying again.'
-            if is_ajax:
-                return jsonify({'success': False, 'errors': [msg]}), 429
-            flash(msg, 'error')
-            return redirect(url_for('cart.view_cart'))
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json or 'application/json' in request.headers.get('Accept', '')
+        
+        # ── Diagnostic Log: Razorpay Configuration (No secrets revealed) ──
+        key_id = os.environ.get('RAZORPAY_KEY_ID', '').strip()
+        key_secret = os.environ.get('RAZORPAY_KEY_SECRET', '').strip()
+        key_prefix = "rzp_live_" if key_id.startswith("rzp_live_") else ("rzp_test_" if key_id.startswith("rzp_test_") else ("missing" if not key_id else "custom"))
+        diag_msg = f"[RAZORPAY CONFIG] KEY_ID set: {bool(key_id)} ({key_prefix}) | KEY_SECRET set: {bool(key_secret)}"
+        print(f"💳 {diag_msg}")
+        current_app.logger.info(diag_msg)
 
-        data = request.get_json(silent=True) or request.form
-        payment_method = data.get('payment_method', 'cod').lower()
-        if payment_method not in ('cod', 'razorpay'):
-            payment_method = 'razorpay'
+        try:
+            if not check_rate_limit('checkout', max_requests=25, window_seconds=300):
+                msg = 'Too many requests. Please wait a moment before trying again.'
+                current_app.logger.warning(f"Checkout rate limit triggered for IP: {request.remote_addr}")
+                return jsonify({'success': False, 'error': msg, 'errors': [msg]}), 429
 
-        # ── Address resolution & validation ──────────────────────────────────
-        address_id = data.get('address_id')
-        email = (data.get('email') or '').strip() or current_user.email
-        addr = None
+            data = request.get_json(silent=True) or request.form
+            payment_method = (data.get('payment_method') or 'cod').lower()
+            if payment_method not in ('cod', 'razorpay'):
+                payment_method = 'razorpay'
 
-        if address_id:
-            addr = Address.query.filter_by(id=address_id, user_id=current_user.id).first()
-            if addr and not addr.email and email:
-                addr.email = email
-        else:
-            full_name = (data.get('full_name') or '').strip()
-            phone     = (data.get('phone') or '').strip()
-            addr_l1   = (data.get('address_line1') or '').strip()
-            city      = (data.get('city') or '').strip()
-            state_val = (data.get('state') or '').strip()
-            pincode   = (data.get('pincode') or '').strip()
+            # ── Address resolution & validation ──────────────────────────────────
+            address_id = data.get('address_id')
+            email = (data.get('email') or '').strip() or current_user.email
+            addr = None
 
-            errors = []
-            if not full_name or len(full_name) < 2:
-                errors.append('Full name is required.')
-            if not re.match(r'^[6-9][0-9]{9}$', phone):
-                errors.append('Please enter a valid 10-digit Indian mobile number.')
-            if not email or '@' not in email or '.' not in email:
-                errors.append('Please enter a valid email address for tracking.')
-            if not addr_l1 or len(addr_l1) < 5:
-                errors.append('Please enter your complete street address.')
-            if not city:
-                errors.append('City is required.')
-            if not state_val:
-                errors.append('State is required.')
-            if not re.match(r'^[1-9][0-9]{5}$', pincode):
-                errors.append('Please enter a valid 6-digit Indian PIN code.')
+            if address_id:
+                addr = Address.query.filter_by(id=address_id, user_id=current_user.id).first()
+                if addr and not addr.email and email:
+                    addr.email = email
             else:
-                sr_res = check_serviceability(delivery_pincode=pincode)
-                if not sr_res.get('serviceable', True):
-                    errors.append(sr_res.get('message', f'PIN code {pincode} is currently not serviceable.'))
+                full_name = (data.get('full_name') or '').strip()
+                phone     = (data.get('phone') or '').strip()
+                addr_l1   = (data.get('address_line1') or '').strip()
+                city      = (data.get('city') or '').strip()
+                state_val = (data.get('state') or '').strip()
+                pincode   = (data.get('pincode') or '').strip()
 
-            if errors:
-                if is_ajax:
-                    return jsonify({'success': False, 'errors': errors}), 400
-                for e in errors:
-                    flash(e, 'error')
-                return render_template('cart/checkout.html',
-                                       cart_items=cart_items, totals=totals,
-                                       addresses=addresses, razorpay_key_id=razorpay_key_id,
-                                       title='Checkout – Vibe Seekers')
+                errors = []
+                if not full_name or len(full_name) < 2:
+                    errors.append('Full name is required.')
+                if not re.match(r'^[6-9][0-9]{9}$', phone):
+                    errors.append('Please enter a valid 10-digit Indian mobile number.')
+                if not email or '@' not in email or '.' not in email:
+                    errors.append('Please enter a valid email address for tracking.')
+                if not addr_l1 or len(addr_l1) < 5:
+                    errors.append('Please enter your complete street address.')
+                if not city:
+                    errors.append('City is required.')
+                if not state_val:
+                    errors.append('State is required.')
+                if not re.match(r'^[1-9][0-9]{5}$', pincode):
+                    errors.append('Please enter a valid 6-digit Indian PIN code.')
+                else:
+                    try:
+                        sr_res = check_serviceability(delivery_pincode=pincode)
+                        if not sr_res.get('serviceable', True):
+                            errors.append(sr_res.get('message', f'PIN code {pincode} is currently not serviceable.'))
+                    except Exception as sr_err:
+                        current_app.logger.warning(f"Serviceability check warning: {sr_err}")
 
-            addr = Address(
+                if errors:
+                    first_err = errors[0]
+                    return jsonify({'success': False, 'error': first_err, 'errors': errors}), 400
+
+                addr = Address(
+                    user_id=current_user.id,
+                    full_name=full_name,
+                    phone=phone,
+                    email=email,
+                    address_line1=addr_l1,
+                    address_line2=(data.get('address_line2') or '').strip(),
+                    city=city,
+                    state=state_val,
+                    pincode=pincode,
+                )
+                db.session.add(addr)
+                db.session.flush()
+
+            if not addr:
+                msg = 'Please select or provide a valid delivery address.'
+                return jsonify({'success': False, 'error': msg, 'errors': [msg]}), 400
+
+            # ── Pre-checkout Stock Verification ────────────────────────────────
+            for item in cart_items:
+                if not item.product or not item.product.is_active:
+                    err_msg = f"'{item.product.name if item.product else 'An item'}' is no longer available. Please update your cart."
+                    return jsonify({'success': False, 'error': err_msg, 'errors': [err_msg]}), 400
+
+                avail = item.product.get_size_stock(item.size) if item.size else item.product.total_stock
+                if avail < item.quantity:
+                    sz_label = f" in size {item.size}" if item.size else ""
+                    err_msg = f"Sorry, '{item.product.name}'{sz_label} only has {avail} left in stock (you requested {item.quantity})."
+                    return jsonify({'success': False, 'error': err_msg, 'errors': [err_msg]}), 400
+
+            # ── Create order record ─────────────────────────────────────────────
+            order = Order(
+                order_number=generate_order_number(),
                 user_id=current_user.id,
-                full_name=full_name,
-                phone=phone,
-                email=email,
-                address_line1=addr_l1,
-                address_line2=(data.get('address_line2') or '').strip(),
-                city=city,
-                state=state_val,
-                pincode=pincode,
+                shipping_name=addr.full_name,
+                shipping_phone=addr.phone,
+                shipping_email=email or addr.email or current_user.email,
+                shipping_address=f"{addr.address_line1}, {addr.address_line2 or ''}".strip(', '),
+                shipping_city=addr.city,
+                shipping_state=addr.state,
+                shipping_pincode=addr.pincode,
+                shipment_status='processing',
+                subtotal=totals['subtotal'],
+                discount_amount=totals['discount'],
+                coupon_code=totals['coupon_code'],
+                shipping_cost=totals['shipping'],
+                total=totals['total'],
+                payment_method=payment_method,
+                payment_status='pending',
+                status='confirmed' if payment_method == 'cod' else 'pending'
             )
-            db.session.add(addr)
+            db.session.add(order)
             db.session.flush()
 
-        if not addr:
-            msg = 'Please select or provide a delivery address.'
-            if is_ajax:
-                return jsonify({'success': False, 'errors': [msg]}), 400
-            flash(msg, 'error')
-            return render_template('cart/checkout.html',
-                                   cart_items=cart_items, totals=totals,
-                                   addresses=addresses, razorpay_key_id=razorpay_key_id,
-                                   title='Checkout – Vibe Seekers')
+            # ── Order items snapshot ────────────────────────────────────────────
+            for item in cart_items:
+                if not item.product:
+                    continue
+                oi = OrderItem(
+                    order_id=order.id,
+                    product_id=item.product_id,
+                    product_name=item.product.name,
+                    product_image=item.product.primary_image,
+                    price=item.product.discounted_price,
+                    quantity=item.quantity,
+                    size=item.size,
+                    color=item.color
+                )
+                db.session.add(oi)
 
-        # ── Pre-checkout Stock Verification ────────────────────────────────
-        for item in cart_items:
-            if not item.product or not item.product.is_active:
-                err_msg = f"'{item.product.name if item.product else 'An item'}' is no longer available. Please update your cart."
-                if is_ajax:
-                    return jsonify({'success': False, 'errors': [err_msg]}), 400
-                flash(err_msg, 'error')
-                return redirect(url_for('cart.view_cart'))
-            avail = item.product.get_size_stock(item.size) if item.size else item.product.total_stock
-            if avail < item.quantity:
-                sz_label = f" in size {item.size}" if item.size else ""
-                err_msg = f"Sorry, '{item.product.name}'{sz_label} only has {avail} left in stock (you requested {item.quantity})."
-                if is_ajax:
-                    return jsonify({'success': False, 'errors': [err_msg]}), 400
-                flash(err_msg, 'error')
-                return redirect(url_for('cart.view_cart'))
+            # ── Razorpay Online Payment Flow ───────────────────────────────────
+            if payment_method == 'razorpay':
+                amount_paise = int(round(order.total * 100))
 
-        # ── Create order record ─────────────────────────────────────────────
-        order = Order(
-            order_number=generate_order_number(),
-            user_id=current_user.id,
-            shipping_name=addr.full_name,
-            shipping_phone=addr.phone,
-            shipping_email=email or addr.email or current_user.email,
-            shipping_address=f"{addr.address_line1}, {addr.address_line2 or ''}".strip(', '),
-            shipping_city=addr.city,
-            shipping_state=addr.state,
-            shipping_pincode=addr.pincode,
-            shipment_status='processing',
-            subtotal=totals['subtotal'],
-            discount_amount=totals['discount'],
-            coupon_code=totals['coupon_code'],
-            shipping_cost=totals['shipping'],
-            total=totals['total'],
-            payment_method=payment_method,
-            payment_status='pending',
-            status='confirmed' if payment_method == 'cod' else 'pending'
-        )
-        db.session.add(order)
-        db.session.flush()
+                if not key_id or not key_secret:
+                    err_msg = 'Razorpay payment keys are not configured on the server. Please contact store support or select Cash on Delivery.'
+                    current_app.logger.error(f"[CHECKOUT ERROR] {err_msg}")
+                    db.session.rollback()
+                    return jsonify({
+                        'success': False,
+                        'error': err_msg,
+                        'errors': [err_msg]
+                    }), 400
 
-        # ── Order items snapshot ────────────────────────────────────────────
-        for item in cart_items:
-            if not item.product:
-                continue
-            oi = OrderItem(
-                order_id=order.id,
-                product_id=item.product_id,
-                product_name=item.product.name,
-                product_image=item.product.primary_image,
-                price=item.product.discounted_price,
-                quantity=item.quantity,
-                size=item.size,
-                color=item.color
-            )
-            db.session.add(oi)
+                try:
+                    import razorpay
+                    client = razorpay.Client(auth=(key_id, key_secret))
+                    rzp_order = client.order.create({
+                        'amount': amount_paise,
+                        'currency': 'INR',
+                        'receipt': order.order_number,
+                        'payment_capture': 1,
+                        'notes': {
+                            'order_id': str(order.id),
+                            'order_number': order.order_number,
+                            'customer_email': order.shipping_email
+                        }
+                    })
+                    rzp_order_id = rzp_order.get('id')
+                    order.razorpay_order_id = rzp_order_id
+                    print(f"💳 [RAZORPAY ORDER CREATED] ID: {rzp_order_id} | Amount: ₹{order.total}")
+                except Exception as ex:
+                    import traceback
+                    tb = traceback.format_exc()
+                    current_app.logger.error(f"❌ [RAZORPAY API EXCEPTION]: {ex}\n{tb}")
+                    print(f"❌ [RAZORPAY API EXCEPTION]: {ex}\n{tb}")
+                    db.session.rollback()
+                    return jsonify({
+                        'success': False,
+                        'error': f"Payment gateway error: {str(ex)}",
+                        'errors': [f"Payment gateway error: {str(ex)}"]
+                    }), 400
 
-        # ── Razorpay Online Payment Flow ───────────────────────────────────
-        if payment_method == 'razorpay':
-            key_id = os.environ.get('RAZORPAY_KEY_ID', '').strip()
-            key_secret = os.environ.get('RAZORPAY_KEY_SECRET', '').strip()
-            amount_paise = int(round(order.total * 100))
+                db.session.commit()
 
-            if not key_id or not key_secret:
-                current_app.logger.error("RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET is not configured.")
-                db.session.rollback()
                 return jsonify({
-                    'success': False,
-                    'errors': ['Online payments are currently undergoing maintenance. Please select Cash on Delivery or try again later.']
-                }), 400
-
-            try:
-                import razorpay
-                client = razorpay.Client(auth=(key_id, key_secret))
-                rzp_order = client.order.create({
+                    'success': True,
+                    'razorpay': True,
+                    'key_id': key_id,
                     'amount': amount_paise,
                     'currency': 'INR',
-                    'receipt': order.order_number,
-                    'payment_capture': 1,
-                    'notes': {
-                        'order_id': str(order.id),
-                        'order_number': order.order_number,
-                        'customer_email': order.shipping_email
-                    }
-                })
-                rzp_order_id = rzp_order.get('id')
-                order.razorpay_order_id = rzp_order_id
-                print(f"💳 [RAZORPAY ORDER CREATED] ID: {rzp_order_id} | Amount: ₹{order.total}")
-            except Exception as ex:
-                current_app.logger.error(f"Razorpay order creation failed for order #{order.order_number}: {ex}")
-                db.session.rollback()
-                return jsonify({
-                    'success': False,
-                    'errors': ['Unable to establish secure payment session with Razorpay. Please try again or select Cash on Delivery.']
-                }), 500
+                    'razorpay_order_id': rzp_order_id,
+                    'order_number': order.order_number,
+                    'customer_name': addr.full_name,
+                    'customer_email': order.shipping_email,
+                    'customer_phone': addr.phone,
+                    'description': f"Vibe Seekers Order #{order.order_number}"
+                }), 200
 
+            # ── Cash on Delivery (COD) Flow ────────────────────────────────────
+            for item in cart_items:
+                if item.product:
+                    deduct_product_stock(item.product, item.quantity, item.size)
+            if coupon:
+                coupon.uses = (coupon.uses or 0) + 1
+            if totals['coupon_code'] == 'FIRST10' and not coupon:
+                current_user.first_order_used = True
+
+            CartItem.query.filter_by(user_id=current_user.id).delete()
+            session.pop('coupon_code', None)
             db.session.commit()
 
-            return jsonify({
-                'success': True,
-                'razorpay': True,
-                'key_id': key_id,
-                'amount': amount_paise,
-                'currency': 'INR',
-                'razorpay_order_id': rzp_order_id,
-                'order_number': order.order_number,
-                'customer_name': addr.full_name,
-                'customer_email': order.shipping_email,
-                'customer_phone': addr.phone,
-                'description': f"Vibe Seekers Order #{order.order_number}"
-            })
+            # Dispatch order confirmation emails
+            try:
+                send_order_confirmation_email(order)
+                send_admin_new_order_email(order)
+            except Exception as ex:
+                current_app.logger.error(f"COD order confirmation email dispatch error: {ex}")
 
-        # ── Cash on Delivery (COD) Flow ────────────────────────────────────
-        # Deduct stock and clear cart immediately for COD
-        for item in cart_items:
-            if item.product:
-                deduct_product_stock(item.product, item.quantity, item.size)
-        if coupon:
-            coupon.uses = (coupon.uses or 0) + 1
-        if totals['coupon_code'] == 'FIRST10' and not coupon:
-            current_user.first_order_used = True
-
-        CartItem.query.filter_by(user_id=current_user.id).delete()
-        session.pop('coupon_code', None)
-        db.session.commit()
-
-        # Dispatch order confirmation emails
-        try:
-            send_order_confirmation_email(order)
-            send_admin_new_order_email(order)
-        except Exception as ex:
-            current_app.logger.error(f"COD order confirmation email dispatch error: {ex}")
-
-        if is_ajax:
             return jsonify({
                 'success': True,
                 'razorpay': False,
                 'redirect': url_for('cart.order_confirmation', order_number=order.order_number)
-            })
+            }), 200
 
-        flash(f'Order <strong>#{order.order_number}</strong> placed successfully!', 'success')
+        except Exception as fatal_ex:
+            import traceback
+            tb = traceback.format_exc()
+            current_app.logger.error(f"❌ [CHECKOUT ROUTE FATAL EXCEPTION]:\n{tb}")
+            print(f"❌ [CHECKOUT ROUTE FATAL EXCEPTION]: {fatal_ex}\n{tb}")
+            db.session.rollback()
+            return jsonify({
+                'success': False,
+                'error': f"Server error: {str(fatal_ex)}",
+                'errors': [f"Server error: {str(fatal_ex)}"]
+            }), 500
         return redirect(url_for('cart.order_confirmation', order_number=order.order_number))
 
     return render_template('cart/checkout.html',

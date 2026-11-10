@@ -449,19 +449,47 @@ if (checkoutForm) {
     setButtonLoading(true);
     clearCheckoutError();
 
+    let resp = null;
+    let responseText = '';
+
     try {
       const formData = new FormData(checkoutForm);
-      const resp = await fetchWithTimeout(checkoutForm.action, {
+      const csrfToken = document.getElementById('csrf_token')?.value || '';
+
+      resp = await fetchWithTimeout(checkoutForm.action, {
         method: 'POST',
         body: formData,
-        headers: { 'X-Requested-With': 'XMLHttpRequest' }
-      }, 15000);
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': csrfToken,
+          'Accept': 'application/json'
+        }
+      }, 20000);
 
-      const data = await resp.json();
+      responseText = await resp.text();
+      console.log('Checkout response status:', resp.status, 'Response body:', responseText);
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseErr) {
+        console.error('Failed to parse checkout server response as JSON:', parseErr, 'Status:', resp.status, 'Raw Body:', responseText);
+        let errorHint = `Server returned status ${resp.status}`;
+        if (responseText.includes('<title>')) {
+          const titleMatch = responseText.match(/<title>(.*?)<\/title>/i);
+          if (titleMatch && titleMatch[1]) {
+            errorHint = titleMatch[1].trim();
+          }
+        }
+        showCheckoutError(`Server Notice (${resp.status})`, errorHint, true);
+        setButtonLoading(false);
+        return;
+      }
 
       if (!resp.ok || !data.success) {
-        const errMsg = data.errors ? data.errors.join('<br>') : (data.error || 'Unable to place order. Please verify your details.');
-        showCheckoutError('Order Submission Notice', errMsg, false);
+        console.error('Checkout rejected by server:', resp.status, data);
+        const errMsg = data.errors ? (Array.isArray(data.errors) ? data.errors.join('<br>') : data.errors) : (data.error || `Error ${resp.status}: Unable to place order.`);
+        showCheckoutError('Order Submission Notice', errMsg, true);
         setButtonLoading(false);
         return;
       }
@@ -469,7 +497,8 @@ if (checkoutForm) {
       // ── Razorpay Payment Flow ──
       if (data.razorpay) {
         if (!window.Razorpay) {
-          showCheckoutError('Payment Gateway Error', 'Razorpay checkout failed to load. Please check your internet connection and try again.', true);
+          console.error('Razorpay SDK window.Razorpay not loaded');
+          showCheckoutError('Payment Gateway Error', 'Razorpay checkout script failed to load. Please check your internet connection or ad blocker and try again.', true);
           setButtonLoading(false);
           return;
         }
@@ -492,19 +521,23 @@ if (checkoutForm) {
           },
           modal: {
             ondismiss: function() {
-              showCheckoutError('Payment Cancelled', 'The payment window was closed before completion. Your cart items are preserved. Click below to try again or switch to Cash on Delivery.', true);
+              console.log('Razorpay modal dismissed by user');
+              showCheckoutError('Payment Incomplete', 'Payment window was closed. Your cart items are preserved. Click below to try again or switch to Cash on Delivery.', true);
               setButtonLoading(false);
             }
           },
           handler: async function(paymentResponse) {
             btnText.textContent = 'Verifying Payment…';
+            let verifyResp = null;
+            let verifyText = '';
             try {
-              const verifyResp = await fetchWithTimeout('/cart/payment/verify', {
+              verifyResp = await fetchWithTimeout('/cart/payment/verify', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
                   'X-Requested-With': 'XMLHttpRequest',
-                  'X-CSRFToken': document.getElementById('csrf_token')?.value || ''
+                  'X-CSRFToken': document.getElementById('csrf_token')?.value || '',
+                  'Accept': 'application/json'
                 },
                 body: JSON.stringify({
                   order_number: data.order_number,
@@ -512,17 +545,35 @@ if (checkoutForm) {
                   razorpay_order_id: paymentResponse.razorpay_order_id,
                   razorpay_signature: paymentResponse.razorpay_signature
                 })
-              }, 15000);
+              }, 20000);
 
-              const verifyData = await verifyResp.json();
+              verifyText = await verifyResp.text();
+              console.log('Payment verify status:', verifyResp.status, 'Response body:', verifyText);
+
+              let verifyData;
+              try {
+                verifyData = JSON.parse(verifyText);
+              } catch (parseVerErr) {
+                console.error('Failed to parse verify response as JSON:', parseVerErr, 'Raw body:', verifyText);
+                showCheckoutError('Verification Notice', `Payment was submitted, but verification returned unexpected response (${verifyResp.status}). If money was deducted, our team will confirm your order.`, true);
+                setButtonLoading(false);
+                return;
+              }
+
               if (verifyData.success) {
                 window.location.href = verifyData.redirect;
               } else {
-                showCheckoutError('Verification Notice', verifyData.error || 'Payment verification failed. If your money was deducted, our team will confirm your order manually. Please contact support.', true);
+                console.error('Payment verification failed:', verifyData);
+                showCheckoutError('Verification Notice', verifyData.error || 'Payment verification failed. Please contact support.', true);
                 setButtonLoading(false);
               }
             } catch (verErr) {
-              showCheckoutError('Network Verification Notice', 'Payment was submitted, but verification timed out. If money was deducted, your order will be confirmed automatically via webhook within 5 minutes.', true);
+              console.error('Payment verification network error:', verErr, 'Status:', verifyResp ? verifyResp.status : 'No response', 'Body:', verifyText);
+              if (navigator.onLine === false) {
+                showCheckoutError('Connection Error', 'Unable to reach the server. Please check your internet connection.', true);
+              } else {
+                showCheckoutError('Verification Notice', `Payment was recorded, but verification encountered an issue: ${verErr.message || verErr}. If money was deducted, your order will be confirmed automatically within 5 minutes.`, true);
+              }
               setButtonLoading(false);
             }
           }
@@ -530,6 +581,7 @@ if (checkoutForm) {
 
         const rzp = new Razorpay(rzpOptions);
         rzp.on('payment.failed', function(resp) {
+          console.error('Razorpay payment failed:', resp);
           const detail = resp && resp.error && resp.error.description ? resp.error.description : 'Payment could not be completed.';
           showCheckoutError('Payment Declined', `${detail} You can retry with another payment method or select Cash on Delivery.`, true);
           setButtonLoading(false);
@@ -540,10 +592,13 @@ if (checkoutForm) {
         window.location.href = data.redirect;
       }
     } catch (err) {
-      if (err.name === 'AbortError') {
-        showCheckoutError('Request Timeout', 'The server took too long to respond. Please check your connection and try again.', true);
-      } else {
+      console.error('Checkout error:', err, 'Response status:', resp ? resp.status : 'No response', 'Response body:', responseText);
+      if (navigator.onLine === false) {
         showCheckoutError('Connection Error', 'Unable to reach the server. Please check your internet connection and try again.', true);
+      } else if (err.name === 'AbortError') {
+        showCheckoutError('Request Timeout', 'The checkout request timed out after 20 seconds. Please try again.', true);
+      } else {
+        showCheckoutError('Notice', err.message || 'An unexpected error occurred while placing your order. Please try again.', true);
       }
       setButtonLoading(false);
     }
