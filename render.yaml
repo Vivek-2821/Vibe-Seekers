@@ -23,7 +23,7 @@ services:
       - key: FLASK_DEBUG
         value: "false"
       - key: ADMIN_EMAIL
-        value: admin@vibeseekers.com
+        value: admin@vibeseekers.in
       - key: ADMIN_PASSWORD
         value: Admin@1234
       - key: CLOUDINARY_URL

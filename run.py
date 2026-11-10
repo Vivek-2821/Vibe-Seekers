@@ -40,7 +40,7 @@ def seed_defaults(app_instance=None):
             pass
 
         try:
-            admin_email = os.environ.get('ADMIN_EMAIL', 'admin@vibeseekers.com')
+            admin_email = os.environ.get('ADMIN_EMAIL', 'admin@vibeseekers.in')
             admin_pass = os.environ.get('ADMIN_PASSWORD', 'Admin@1234')
 
             # Default admin user
@@ -100,6 +100,16 @@ def seed_defaults(app_instance=None):
         except Exception:
             pass
 
+        # Ensure Order table has payment_failure_reason
+        try:
+            order_cols = [c['name'] for c in db.inspect(db.engine).get_columns('orders')]
+            with db.engine.connect() as conn:
+                if 'payment_failure_reason' not in order_cols:
+                    conn.execute(db.text('ALTER TABLE orders ADD COLUMN payment_failure_reason VARCHAR(500)'))
+                    conn.commit()
+        except Exception:
+            pass
+
         # Seed VIBE10 coupon
         try:
             from app.models import Coupon
@@ -122,9 +132,10 @@ def seed_defaults(app_instance=None):
         try:
             defaults = {
                 'store_name': 'Vibe Seekers',
-                'store_email': os.environ.get('STORE_EMAIL', 'hello@vibeseekers.com'),
+                'store_email': os.environ.get('STORE_EMAIL', 'hello@vibeseekers.in'),
                 'store_phone': os.environ.get('STORE_PHONE', '+91 98604 98749'),
                 'store_address': 'India',
+                'legal_business_name': os.environ.get('LEGAL_BUSINESS_NAME', '[YOUR BUSINESS LEGAL NAME]'),
                 'announcement_text': '🔥 FREE SHIPPING on orders above ₹999 | Use code VIBE10 for 10% off your first order!',
                 'announcement_active': 'true',
                 'social_instagram': 'https://www.instagram.com/vibe_seekers_09',

@@ -231,5 +231,158 @@ class PrelaunchAuditTestCase(unittest.TestCase):
         res_cust = self.client.get('/user/orders')
         self.assertEqual(res_cust.status_code, 200)
 
+    def test_record_payment_failure_endpoint(self):
+        """Verify /cart/payment/record-failure updates Order status, captures reason, and flags domain mismatch without touching stock."""
+        user = self._login_user("fail_test@test.com")
+        prod = Product(name="Failure Test Tee", slug="fail-tee", price=999.0, stock=10, is_active=True)
+        db.session.add(prod)
+        db.session.flush()
+        size_m = ProductSize(product_id=prod.id, size="M", stock=10)
+        db.session.add(size_m)
+        db.session.flush()
+
+        order = Order(
+            order_number="VS-FAIL-001",
+            user_id=user.id,
+            shipping_name="Test Shopper",
+            shipping_phone="9876543210",
+            shipping_email=user.email,
+            shipping_address="123 Street",
+            shipping_city="Mumbai",
+            shipping_state="Maharashtra",
+            shipping_pincode="400001",
+            subtotal=999.0,
+            total=999.0,
+            payment_method='razorpay',
+            payment_status='pending',
+            status='pending'
+        )
+        db.session.add(order)
+        db.session.flush()
+        db.session.add(OrderItem(order_id=order.id, product_id=prod.id, product_name=prod.name, price=999.0, quantity=1, size="M"))
+        db.session.commit()
+
+        # Send failure with "website does not match"
+        fail_payload = {
+            'order_number': 'VS-FAIL-001',
+            'razorpay_payment_id': 'pay_failed_123',
+            'error_code': 'BAD_REQUEST_ERROR',
+            'error_description': 'Payment blocked as website does not match registered website(s)',
+            'error_reason': 'website does not match registered website(s)',
+            'error_source': 'gateway',
+            'error_step': 'payment_initiation'
+        }
+        res = self.client.post('/cart/payment/record-failure', json=fail_payload)
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertTrue(data.get('success'))
+        self.assertTrue(data.get('is_domain_mismatch'))
+
+        # Verify Order state in DB
+        updated_order = Order.query.filter_by(order_number='VS-FAIL-001').first()
+        self.assertEqual(updated_order.payment_status, 'failed')
+        self.assertEqual(updated_order.razorpay_payment_id, 'pay_failed_123')
+        self.assertIn("website does not match", updated_order.payment_failure_reason.lower())
+
+        # Stock must NOT be reduced
+        self.assertEqual(size_m.stock, 10)
+        self.assertEqual(prod.stock, 10)
+
+    def test_razorpay_webhook_idempotency_and_stock_deduction(self):
+        """Verify webhook captures payment.captured, deducts per-size stock inside transaction, and is idempotent."""
+        from app.models import WebhookEvent
+        user = self._login_user("webhook_user@test.com")
+        prod = Product(name="Webhook Tee", slug="webhook-tee", price=1299.0, stock=15, is_active=True)
+        db.session.add(prod)
+        db.session.flush()
+        size_l = ProductSize(product_id=prod.id, size="L", stock=5)
+        db.session.add(size_l)
+        db.session.flush()
+
+        order = Order(
+            order_number="VS-WH-001",
+            user_id=user.id,
+            shipping_name="WH Shopper",
+            shipping_phone="9876543210",
+            shipping_email=user.email,
+            shipping_address="456 Cross Rd",
+            shipping_city="Pune",
+            shipping_state="Maharashtra",
+            shipping_pincode="411001",
+            subtotal=1299.0,
+            total=1299.0,
+            payment_method='razorpay',
+            payment_status='pending',
+            status='pending',
+            razorpay_order_id='order_wh_test_123'
+        )
+        db.session.add(order)
+        db.session.flush()
+        db.session.add(OrderItem(order_id=order.id, product_id=prod.id, product_name=prod.name, price=1299.0, quantity=1, size="L"))
+        db.session.commit()
+
+        webhook_payload = {
+            'event_id': 'evt_test_12345',
+            'event': 'payment.captured',
+            'payload': {
+                'payment': {
+                    'entity': {
+                        'id': 'pay_test_cap_999',
+                        'order_id': 'order_wh_test_123',
+                        'amount': 129900,
+                        'status': 'captured'
+                    }
+                }
+            }
+        }
+
+        # First webhook delivery: marks paid and deducts stock
+        res1 = self.client.post('/cart/payment/webhook', json=webhook_payload)
+        self.assertEqual(res1.status_code, 200)
+        self.assertEqual(res1.get_json().get('status'), 'ok')
+
+        # Check order is paid and stock deducted
+        db.session.refresh(order)
+        db.session.refresh(size_l)
+        db.session.refresh(prod)
+        self.assertEqual(order.payment_status, 'paid')
+        self.assertEqual(order.status, 'confirmed')
+        self.assertEqual(order.razorpay_payment_id, 'pay_test_cap_999')
+        self.assertEqual(size_l.stock, 4)
+        self.assertEqual(prod.stock, 14)
+
+        # Check logged to WebhookEvent table
+        log = WebhookEvent.query.filter_by(event_id='evt_test_12345').first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.event_type, 'payment.captured')
+
+        # Second delivery with identical event_id: idempotent ignore
+        res2 = self.client.post('/cart/payment/webhook', json=webhook_payload)
+        self.assertEqual(res2.status_code, 200)
+        self.assertEqual(res2.get_json().get('status'), 'duplicate_ignored')
+
+        # Stock must NOT be deducted a second time
+        db.session.refresh(size_l)
+        self.assertEqual(size_l.stock, 4)
+
+    def test_root_razorpay_webhook_endpoint(self):
+        """Verify root-level /webhooks/razorpay endpoint is active and responds without 404/405."""
+        res = self.client.post('/webhooks/razorpay', json={'event': 'dummy.ping', 'event_id': 'ping_001'})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json().get('status'), 'ok')
+
+    def test_footer_legal_links_and_business_name(self):
+        """Verify footer displays legal trust links and business legal entity."""
+        res = self.client.get('/')
+        self.assertEqual(res.status_code, 200)
+        html = res.get_data(as_text=True)
+        self.assertIn('/privacy-policy', html)
+        self.assertIn('/terms', html)
+        self.assertIn('/shipping-policy', html)
+        self.assertIn('/refund-policy', html)
+        self.assertIn('/contact', html)
+        self.assertIn('/about', html)
+        self.assertIn('Operated by', html)
+
 if __name__ == '__main__':
     unittest.main()

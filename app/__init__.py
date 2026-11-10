@@ -85,6 +85,31 @@ def create_app(config_name=None):
         '127.0.0.1',
     ]
     
+    # Razorpay Gateway Mode & Credentials (Strictly read from environment variables)
+    rzp_key_id = os.environ.get('RAZORPAY_KEY_ID', '').strip()
+    rzp_key_secret = os.environ.get('RAZORPAY_KEY_SECRET', '').strip()
+    rzp_webhook_secret = os.environ.get('RAZORPAY_WEBHOOK_SECRET', '').strip()
+
+    if rzp_key_id.startswith('rzp_live_'):
+        rzp_mode = 'LIVE'
+    elif rzp_key_id.startswith('rzp_test_'):
+        rzp_mode = 'TEST'
+    else:
+        rzp_mode = 'DISABLED'
+
+    app.config['RAZORPAY_MODE'] = rzp_mode
+    app.config['RAZORPAY_KEY_ID'] = rzp_key_id
+    app.config['RAZORPAY_KEY_SECRET'] = rzp_key_secret
+    app.config['RAZORPAY_WEBHOOK_SECRET'] = rzp_webhook_secret
+
+    if config_name != 'testing':
+        if not rzp_key_id or not rzp_key_secret:
+            app.logger.warning("❌ [RAZORPAY CONFIG CRITICAL] RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET is missing! Online payments via Razorpay are disabled.")
+            print("❌ [RAZORPAY CONFIG CRITICAL] RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET is missing! Online payments DISABLED.")
+        else:
+            app.logger.info(f"💳 Razorpay mode: {rzp_mode}")
+            print(f"💳 Razorpay mode: {rzp_mode}")
+    
     # Mail config (update with real SMTP for production)
     app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
     app.config['MAIL_PORT'] = 587
@@ -192,6 +217,7 @@ def create_app(config_name=None):
             nav_categories=nav_categories,
             cart_count=cart_count,
             wishlist_count=wishlist_count,
+            razorpay_mode=app.config.get('RAZORPAY_MODE', 'DISABLED'),
             now=_dt.utcnow()
         )
 
@@ -278,6 +304,16 @@ def create_app(config_name=None):
                 app.logger.error(f"Error in db.create_all(): {e}")
                 db.session.rollback()
 
+            # Ensure payment_failure_reason column exists on orders table
+            try:
+                order_cols = [c['name'] for c in db.inspect(db.engine).get_columns('orders')]
+                with db.engine.connect() as conn:
+                    if 'payment_failure_reason' not in order_cols:
+                        conn.execute(db.text('ALTER TABLE orders ADD COLUMN payment_failure_reason VARCHAR(500)'))
+                        conn.commit()
+            except Exception as e:
+                app.logger.warning(f"Orders table schema migration notice: {e}")
+
             # Ensure default admin exists
             try:
                 from .models import User
@@ -310,6 +346,7 @@ def create_app(config_name=None):
                     'store_email': os.environ.get('STORE_EMAIL', 'hello@vibeseekers.in'),
                     'store_phone': os.environ.get('STORE_PHONE', '+91 98604 98749'),
                     'store_address': 'India',
+                    'legal_business_name': os.environ.get('LEGAL_BUSINESS_NAME', '[YOUR BUSINESS LEGAL NAME]'),
                     'announcement_text': '🔥 FREE SHIPPING on orders above ₹999 | Use code VIBE10 for 10% off your first order!',
                     'announcement_active': 'true',
                     'social_instagram': 'https://www.instagram.com/vibe_seekers_09',

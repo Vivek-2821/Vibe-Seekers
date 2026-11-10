@@ -7,7 +7,7 @@ from datetime import datetime
 from flask import (Blueprint, render_template, redirect, url_for, flash,
                    request, jsonify, session, current_app)
 from flask_login import login_required, current_user
-from app.models import CartItem, Product, Order, OrderItem, Coupon, Address, SiteSetting
+from app.models import CartItem, Product, Order, OrderItem, Coupon, Address, SiteSetting, WebhookEvent
 from app.utils import generate_order_number, deduct_product_stock, restore_product_stock, check_rate_limit
 from app.email import send_order_confirmation_email, send_admin_new_order_email
 from app.shiprocket import check_serviceability
@@ -641,7 +641,75 @@ def verify_payment():
     })
 
 
+@cart_bp.route('/payment/record-failure', methods=['POST'])
+@login_required
+def record_payment_failure():
+    """
+    Records Razorpay client-side payment failures on the Order model.
+    Captures error description, code, step, source, reason, and razorpay_payment_id.
+    Keeps stock untouched and order in 'pending' / payment_status 'failed'.
+    """
+    try:
+        data = request.get_json(silent=True) or request.form
+        order_number = (data.get('order_number') or '').strip()
+        razorpay_payment_id = (data.get('razorpay_payment_id') or '').strip()
+        err_code = (data.get('error_code') or '').strip()
+        err_desc = (data.get('error_description') or '').strip()
+        err_reason = (data.get('error_reason') or '').strip()
+        err_source = (data.get('error_source') or '').strip()
+        err_step = (data.get('error_step') or '').strip()
+
+        if not order_number:
+            return jsonify({'success': False, 'error': 'Order number is required.'}), 400
+
+        order = Order.query.filter_by(order_number=order_number, user_id=current_user.id).first()
+        if not order:
+            return jsonify({'success': False, 'error': 'Order not found.'}), 404
+
+        # If order was already confirmed/paid, don't revert to failed
+        if order.payment_status == 'paid':
+            return jsonify({'success': True, 'message': 'Order already paid.'}), 200
+
+        failure_text = err_desc or err_reason or 'Payment declined'
+        details = []
+        if err_code: details.append(f"code: {err_code}")
+        if err_step: details.append(f"step: {err_step}")
+        if err_source: details.append(f"source: {err_source}")
+        if details:
+            failure_text += f" [{', '.join(details)}]"
+
+        order.payment_status = 'failed'
+        order.payment_failure_reason = failure_text[:500]
+        if razorpay_payment_id:
+            order.razorpay_payment_id = razorpay_payment_id
+
+        # Detect domain mismatch warning
+        is_domain_mismatch = (
+            'website does not match' in (err_desc or '').lower() or
+            'website does not match' in (err_reason or '').lower()
+        )
+        if is_domain_mismatch:
+            warn_msg = (
+                f"🚨 [RAZORPAY DOMAIN MISMATCH WARNING] Order #{order.order_number}: "
+                f"Razorpay blocked payment because the website URL does not match approved domains on your Razorpay Dashboard. "
+                f"Please ensure https://vibeseekers.in is submitted and approved under Razorpay Settings -> Websites."
+            )
+            current_app.logger.warning(warn_msg)
+            print(warn_msg)
+
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'is_domain_mismatch': is_domain_mismatch
+        }), 200
+    except Exception as ex:
+        db.session.rollback()
+        current_app.logger.error(f"Error recording payment failure for #{order_number}: {ex}")
+        return jsonify({'success': False, 'error': str(ex)}), 500
+
+
 @cart_bp.route('/payment/webhook', methods=['POST'])
+@cart_bp.route('/webhook', methods=['POST'])
 @csrf.exempt
 def razorpay_webhook():
     """
@@ -652,16 +720,15 @@ def razorpay_webhook():
     payload = request.get_data(as_text=True)
     signature = request.headers.get('X-Razorpay-Signature', '')
     webhook_secret = os.environ.get('RAZORPAY_WEBHOOK_SECRET', '').strip()
+    key_id = os.environ.get('RAZORPAY_KEY_ID', '').strip()
+    key_secret = os.environ.get('RAZORPAY_KEY_SECRET', '').strip()
 
     if webhook_secret:
         if not signature:
             return jsonify({'status': 'missing signature'}), 400
         try:
             import razorpay
-            client = razorpay.Client(auth=(
-                os.environ.get('RAZORPAY_KEY_ID', ''),
-                os.environ.get('RAZORPAY_KEY_SECRET', '')
-            ))
+            client = razorpay.Client(auth=(key_id, key_secret))
             client.utility.verify_webhook_signature(payload, signature, webhook_secret)
         except Exception as ex:
             current_app.logger.error(f"Razorpay webhook signature verification failed: {ex}")
@@ -669,20 +736,44 @@ def razorpay_webhook():
 
     data = request.get_json(silent=True) or {}
     event = data.get('event')
+    entity = (data.get('payload', {}).get('payment', {}).get('entity') or
+              data.get('payload', {}).get('order', {}).get('entity') or {})
+    rzp_order_id = entity.get('order_id')
+    rzp_payment_id = entity.get('id')
+
+    # Event ID for idempotency
+    event_id = (data.get('event_id') or 
+                data.get('id') or 
+                f"{event}_{rzp_payment_id or rzp_order_id or int(datetime.utcnow().timestamp())}")
+
+    # Check idempotency against WebhookEvent table
+    try:
+        existing = WebhookEvent.query.filter_by(event_id=str(event_id)).first()
+        if existing:
+            current_app.logger.info(f"Duplicate webhook event {event_id} ignored.")
+            return jsonify({'status': 'duplicate_ignored'}), 200
+
+        # Save to WebhookEvent log table
+        we = WebhookEvent(
+            event_id=str(event_id),
+            event_type=str(event or 'unknown'),
+            payload=payload[:10000]
+        )
+        db.session.add(we)
+        db.session.flush()
+    except Exception as log_err:
+        current_app.logger.warning(f"WebhookEvent logging notice: {log_err}")
+        db.session.rollback()
 
     if event in ('payment.captured', 'order.paid'):
-        entity = (data.get('payload', {}).get('payment', {}).get('entity') or
-                  data.get('payload', {}).get('order', {}).get('entity') or {})
-        rzp_order_id = entity.get('order_id')
-        rzp_payment_id = entity.get('id')
-
         if rzp_order_id:
             order = Order.query.filter_by(razorpay_order_id=rzp_order_id).first()
             if order and order.payment_status != 'paid':
                 try:
                     order.payment_status = 'paid'
                     order.status = 'confirmed'
-                    order.razorpay_payment_id = rzp_payment_id
+                    if rzp_payment_id:
+                        order.razorpay_payment_id = rzp_payment_id
 
                     # Deduct stock per size inside transaction
                     for oi in order.items:
@@ -694,7 +785,7 @@ def razorpay_webhook():
                         CartItem.query.filter_by(user_id=order.user_id).delete()
 
                     db.session.commit()
-                    current_app.logger.info(f"Webhook marked order #{order.order_number} as PAID.")
+                    current_app.logger.info(f"Webhook marked order #{order.order_number} as PAID and reduced size stock.")
 
                     try:
                         send_order_confirmation_email(order)
@@ -706,14 +797,26 @@ def razorpay_webhook():
                     current_app.logger.error(f"Webhook database error for order #{order.order_number}: {ex}")
 
     elif event == 'payment.failed':
-        entity = data.get('payload', {}).get('payment', {}).get('entity') or {}
-        rzp_order_id = entity.get('order_id')
         if rzp_order_id:
             order = Order.query.filter_by(razorpay_order_id=rzp_order_id).first()
             if order and order.payment_status != 'paid':
-                order.payment_status = 'failed'
-                db.session.commit()
-                current_app.logger.info(f"Webhook recorded payment failed for order #{order.order_number}. Stock untouched.")
+                try:
+                    order.payment_status = 'failed'
+                    fail_desc = entity.get('error_description') or entity.get('error_reason') or 'Payment failed'
+                    order.payment_failure_reason = str(fail_desc)[:500]
+                    if rzp_payment_id:
+                        order.razorpay_payment_id = rzp_payment_id
+                    db.session.commit()
+                    current_app.logger.info(f"Webhook recorded payment failed for order #{order.order_number}. Stock untouched.")
+                except Exception as ex:
+                    db.session.rollback()
+                    current_app.logger.error(f"Webhook error updating payment.failed: {ex}")
+    else:
+        # Commit the logged webhook event for other unhandled events
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
 
     return jsonify({'status': 'ok'}), 200
 

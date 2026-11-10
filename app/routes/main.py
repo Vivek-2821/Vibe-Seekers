@@ -117,6 +117,14 @@ def terms():
     return render_template('pages/terms.html', title='Terms & Conditions – Vibe Seekers')
 
 
+@main_bp.route('/webhooks/razorpay', methods=['POST'])
+@csrf.exempt
+def razorpay_webhook_root():
+    """Root-level webhook route for Razorpay dashboard webhook integration."""
+    from app.routes.cart import razorpay_webhook
+    return razorpay_webhook()
+
+
 @main_bp.route('/newsletter/subscribe', methods=['GET', 'POST'])
 @main_bp.route('/subscribe', methods=['GET', 'POST'])
 @main_bp.route('/notify-me', methods=['GET', 'POST'])

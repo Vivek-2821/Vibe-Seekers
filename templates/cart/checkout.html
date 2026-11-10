@@ -26,6 +26,16 @@
     <div class="cart-grid">
       <!-- Shipping & Payment -->
       <div>
+        {% if razorpay_mode == 'TEST' %}
+        <div style="background:rgba(245,158,11,0.12);border:1.5px solid #f59e0b;color:#f59e0b;border-radius:var(--radius-lg);padding:12px 18px;margin-bottom:20px;display:flex;align-items:center;gap:12px;font-size:0.88rem;">
+          <span style="font-size:22px;">🧪</span>
+          <div>
+            <strong style="display:block;margin-bottom:2px;">Test mode: no real money is charged</strong>
+            <span>You are currently in testing mode. Use test card or UPI details to simulate placing an order.</span>
+          </div>
+        </div>
+        {% endif %}
+
         <!-- In-Place Error Banner (Shown without reloading page) -->
         <div id="checkout-error-banner" style="display:none;background:rgba(220,30,30,0.12);border:1.5px solid var(--error);border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:24px;">
           <div style="display:flex;align-items:flex-start;gap:12px;">
@@ -580,10 +590,54 @@ if (checkoutForm) {
         };
 
         const rzp = new Razorpay(rzpOptions);
-        rzp.on('payment.failed', function(resp) {
-          console.error('Razorpay payment failed:', resp);
-          const detail = resp && resp.error && resp.error.description ? resp.error.description : 'Payment could not be completed.';
-          showCheckoutError('Payment Declined', `${detail} You can retry with another payment method or select Cash on Delivery.`, true);
+        rzp.on('payment.failed', async function(resp) {
+          console.error('Razorpay payment failed details:', resp);
+          const err = (resp && resp.error) || {};
+          const description = err.description || '';
+          const reason = err.reason || '';
+          const code = err.code || '';
+          const source = err.source || '';
+          const step = err.step || '';
+          const paymentId = (err.metadata && err.metadata.payment_id) || '';
+
+          const fullReason = `${description} ${reason}`.toLowerCase();
+          const isDomainMismatch = fullReason.includes('website does not match');
+
+          // Notify server to record the failure reason on the order
+          try {
+            await fetch('/cart/payment/record-failure', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': document.getElementById('csrf_token')?.value || '',
+                'Accept': 'application/json'
+              },
+              body: JSON.stringify({
+                order_number: data.order_number,
+                razorpay_payment_id: paymentId,
+                error_code: code,
+                error_description: description,
+                error_reason: reason,
+                error_source: source,
+                error_step: step
+              })
+            });
+          } catch (postErr) {
+            console.error('Error logging payment failure to server:', postErr);
+          }
+
+          // Show friendly contextual error message without page refresh
+          if (isDomainMismatch) {
+            showCheckoutError(
+              'Online Payments Activating',
+              'Online payments are being activated for this website. Please try again later or contact us on WhatsApp (<a href="https://wa.me/919860498749" target="_blank" style="color:#22c55e;font-weight:600;text-decoration:underline;">+91 98604 98749</a>). You may also switch to Cash on Delivery to place your order now.',
+              true
+            );
+          } else {
+            const detailMsg = description || reason || 'Payment could not be completed.';
+            showCheckoutError('Payment Declined', `${detailMsg}<br>You can retry payment, choose another payment method, or select Cash on Delivery.`, true);
+          }
           setButtonLoading(false);
         });
         rzp.open();

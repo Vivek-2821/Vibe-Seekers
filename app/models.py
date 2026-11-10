@@ -334,6 +334,7 @@ class Order(db.Model):
     # pending, confirmed, shipped, delivered, cancelled, refunded
     payment_method = db.Column(db.String(30), default='cod')  # cod, upi, razorpay
     payment_status = db.Column(db.String(20), default='pending')  # pending, paid, failed
+    payment_failure_reason = db.Column(db.String(500))  # Reason captured from Razorpay or gateway
     razorpay_order_id = db.Column(db.String(100))
     razorpay_payment_id = db.Column(db.String(100))
     tracking_number = db.Column(db.String(100))
@@ -434,3 +435,16 @@ class Banner(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     sort_order = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class WebhookEvent(db.Model):
+    __tablename__ = 'webhook_events'
+
+    id = db.Column(db.Integer, primary_key=True)
+    event_id = db.Column(db.String(100), unique=True, nullable=False)
+    event_type = db.Column(db.String(100), nullable=False)
+    payload = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<WebhookEvent {self.event_id} ({self.event_type})>'

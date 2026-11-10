@@ -29,6 +29,20 @@
 {% endblock %}
 
 {% block content %}
+{% if order.payment_failure_reason %}
+<div style="background:rgba(239,68,68,0.12);border:1.5px solid #ef4444;border-radius:10px;padding:16px 20px;margin-bottom:24px;display:flex;align-items:flex-start;gap:14px;">
+  <span style="font-size:24px;color:#ef4444;line-height:1;">⚠️</span>
+  <div style="flex:1;">
+    <strong style="color:#f87171;font-size:15px;display:block;margin-bottom:4px;">Razorpay Payment Failed</strong>
+    <div style="color:#fca5a5;font-size:14px;line-height:1.5;">{{ order.payment_failure_reason }}</div>
+    {% if 'website does not match' in order.payment_failure_reason.lower() %}
+    <div style="margin-top:8px;font-size:13px;color:#fbbf24;background:rgba(245,158,11,0.1);border-left:3px solid #f59e0b;padding:6px 10px;border-radius:4px;">
+      ℹ️ <strong>Action Required:</strong> Log in to Razorpay Dashboard &rarr; Settings &rarr; Websites and ensure <code>https://vibeseekers.in</code> is submitted and approved.
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
 <div style="display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start;">
   <!-- Left: Items & Timeline -->
   <div style="display:flex;flex-direction:column;gap:24px;">
@@ -223,6 +237,12 @@
         {% endif %}
         {% if order.razorpay_order_id %}
         <div><strong>Razorpay Order ID:</strong> <code style="color:#94a3b8;">{{ order.razorpay_order_id }}</code></div>
+        {% endif %}
+        {% if order.payment_failure_reason %}
+        <div style="margin-top:10px;padding:10px 12px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);border-radius:6px;font-size:13px;line-height:1.5;">
+          <strong style="color:#f87171;font-size:11px;text-transform:uppercase;display:block;">⚠️ Payment Failure:</strong>
+          <span style="color:#fca5a5;">{{ order.payment_failure_reason }}</span>
+        </div>
         {% endif %}
         {% if order.notes %}<div style="margin-top:8px;padding:10px;background:#1a1a24;border-radius:8px;color:#94a3b8;font-size:13px;">{{ order.notes }}</div>{% endif %}
 

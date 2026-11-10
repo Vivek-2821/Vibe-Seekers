@@ -415,7 +415,22 @@
         <div class="page-breadcrumb">{% block breadcrumb %}Admin / Dashboard{% endblock %}</div>
       </div>
     </div>
-    <div class="topbar-actions">{% block topbar_actions %}{% endblock %}</div>
+    <div class="topbar-actions">
+      {% if razorpay_mode == 'LIVE' %}
+      <span class="badge" style="background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid #22c55e;font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;display:inline-flex;align-items:center;gap:6px;" title="Razorpay is in LIVE mode">
+        <span style="width:7px;height:7px;border-radius:50%;background:#22c55e;display:inline-block;"></span> Razorpay: LIVE mode
+      </span>
+      {% elif razorpay_mode == 'TEST' %}
+      <span class="badge" style="background:rgba(245,158,11,0.15);color:#f59e0b;border:1px solid #f59e0b;font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;display:inline-flex;align-items:center;gap:6px;" title="Razorpay is in TEST mode">
+        <span style="width:7px;height:7px;border-radius:50%;background:#f59e0b;display:inline-block;"></span> Razorpay: TEST mode
+      </span>
+      {% else %}
+      <span class="badge" style="background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid #ef4444;font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;display:inline-flex;align-items:center;gap:6px;" title="Razorpay credentials missing">
+        <span style="width:7px;height:7px;border-radius:50%;background:#ef4444;display:inline-block;"></span> Razorpay: DISABLED
+      </span>
+      {% endif %}
+      {% block topbar_actions %}{% endblock %}
+    </div>
   </div>
 
   <div class="flash-container">

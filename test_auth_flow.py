@@ -126,7 +126,7 @@ class AuthFlowTestCase(unittest.TestCase):
     def test_06_admin_login_works(self):
         """Default admin can log in and is redirected to admin dashboard."""
         res = self.client.post('/auth/login', data={
-            'email': 'admin@vibeseekers.com',
+            'email': 'admin@vibeseekers.in',
             'password': 'Admin@1234'
         }, follow_redirects=False)
 
