@@ -46,10 +46,13 @@ def create_app(config_name=None):
 
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     if config_name != 'testing' and db_url.startswith('postgresql'):
-        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        engine_options = {
             'pool_pre_ping': True,
             'pool_recycle': 300,
         }
+        if 'sslmode' not in db_url:
+            engine_options['connect_args'] = {'sslmode': 'prefer'}
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = engine_options
     app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'uploads')
     app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload
     app.config['WTF_CSRF_ENABLED'] = True
@@ -221,6 +224,86 @@ def create_app(config_name=None):
                         db.session.add(SiteSetting(key=key, value=value))
                 db.session.commit()
             except Exception as e:
+                db.session.rollback()
+
+            # Ensure default T-Shirt product and category exist
+            try:
+                from .models import Category, Product, ProductImage, ProductSize, ProductColor
+                cat = Category.query.filter_by(slug='t-shirts').first()
+                if not cat:
+                    cat = Category(
+                        name='T-Shirts',
+                        slug='t-shirts',
+                        description='Premium streetwear oversized and graphic tees.',
+                        image='/static/uploads/categories/cat_tshirts.png',
+                        is_active=True,
+                        sort_order=1
+                    )
+                    db.session.add(cat)
+                    db.session.flush()
+                elif not cat.is_active:
+                    cat.is_active = True
+                    db.session.flush()
+
+                prod = Product.query.filter_by(slug='signature-heavyweight-oversized-tee').first()
+                if not prod:
+                    prod = Product(
+                        name='Signature Heavyweight Oversized Tee',
+                        slug='signature-heavyweight-oversized-tee',
+                        description='Engineered for the modern streetwear aesthetic. Crafted from premium 240 GSM dense combed cotton with dropped shoulders, a structured silhouette, and ribbed crew collar. Pre-shrunk for lasting shape and an authentic vintage streetwear feel.',
+                        price=1299.0,
+                        discount_percent=23.0,
+                        stock=45,
+                        category_id=cat.id,
+                        is_new_arrival=True,
+                        is_trending=True,
+                        is_best_selling=True,
+                        is_active=True,
+                        sku='VS-TEE-001',
+                        weight=0.35,
+                        length=30.0,
+                        breadth=25.0,
+                        height=3.0
+                    )
+                    db.session.add(prod)
+                    db.session.flush()
+
+                    # Add images
+                    img1 = ProductImage(
+                        product_id=prod.id,
+                        image_url='/static/uploads/products/demo_tshirt.png',
+                        is_primary=True,
+                        alt_text=prod.name,
+                        sort_order=0
+                    )
+                    img2 = ProductImage(
+                        product_id=prod.id,
+                        image_url='/static/uploads/products/default_product.png',
+                        is_primary=False,
+                        alt_text=f'{prod.name} Alternate View',
+                        sort_order=1
+                    )
+                    db.session.add_all([img1, img2])
+
+                    # Add sizes
+                    sizes = [
+                        ProductSize(product_id=prod.id, size='S', stock=10),
+                        ProductSize(product_id=prod.id, size='M', stock=15),
+                        ProductSize(product_id=prod.id, size='L', stock=12),
+                        ProductSize(product_id=prod.id, size='XL', stock=8),
+                    ]
+                    db.session.add_all(sizes)
+
+                    # Add colors
+                    colors = [
+                        ProductColor(product_id=prod.id, color_name='Washed Black', color_hex='#111111'),
+                        ProductColor(product_id=prod.id, color_name='Vintage Off-White', color_hex='#F5F5F3'),
+                    ]
+                    db.session.add_all(colors)
+
+                db.session.commit()
+            except Exception as e:
+                app.logger.error(f"Error seeding default t-shirt: {e}")
                 db.session.rollback()
 
     return app
