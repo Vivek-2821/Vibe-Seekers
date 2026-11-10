@@ -64,7 +64,8 @@ def create_app(config_name=None):
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = engine_options
     app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'uploads')
     app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload
-    app.config['WTF_CSRF_ENABLED'] = True
+    if config_name != 'testing':
+        app.config['WTF_CSRF_ENABLED'] = True
 
     # Trusted Origins and Allowed Hosts for CSRF and CORS
     app.config['WTF_CSRF_TRUSTED_ORIGINS'] = [

@@ -315,13 +315,28 @@ def checkout():
                 payment_method = 'razorpay'
 
             # ── Address resolution & validation ──────────────────────────────────
-            address_id = data.get('address_id')
+            raw_address_id = data.get('address_id')
             email = (data.get('email') or '').strip() or current_user.email
             addr = None
 
-            if address_id:
-                addr = Address.query.filter_by(id=address_id, user_id=current_user.id).first()
-                if addr and not addr.email and email:
+            if raw_address_id is not None and str(raw_address_id).strip():
+                try:
+                    addr_id_int = int(str(raw_address_id).strip())
+                except (ValueError, TypeError):
+                    return jsonify({
+                        'success': False,
+                        'error': 'Invalid address ID selected.',
+                        'errors': ['Invalid address ID.']
+                    }), 400
+
+                addr = Address.query.filter_by(id=addr_id_int, user_id=current_user.id).first()
+                if not addr:
+                    return jsonify({
+                        'success': False,
+                        'error': 'Selected delivery address was not found.',
+                        'errors': ['Selected delivery address was not found.']
+                    }), 404
+                if not addr.email and email:
                     addr.email = email
             else:
                 full_name = (data.get('full_name') or '').strip()

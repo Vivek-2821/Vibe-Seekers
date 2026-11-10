@@ -131,7 +131,7 @@ def add_product():
             price=float(request.form.get('price', 0)),
             discount_percent=float(request.form.get('discount_percent', 0)),
             stock=int(request.form.get('stock', 0)),
-            category_id=request.form.get('category_id') or None,
+            category_id=int(request.form.get('category_id')) if request.form.get('category_id') and str(request.form.get('category_id')).strip() else None,
             is_new_arrival=request.form.get('is_new_arrival') == 'on',
             is_trending=request.form.get('is_trending') == 'on',
             is_best_selling=request.form.get('is_best_selling') == 'on',
@@ -231,7 +231,8 @@ def edit_product(product_id):
         product.price = float(request.form.get('price', 0))
         product.discount_percent = float(request.form.get('discount_percent', 0))
         product.stock = int(request.form.get('stock', 0))
-        product.category_id = request.form.get('category_id') or None
+        raw_cat_id = request.form.get('category_id')
+        product.category_id = int(raw_cat_id) if raw_cat_id and str(raw_cat_id).strip() else None
         product.is_new_arrival = request.form.get('is_new_arrival') == 'on'
         product.is_trending = request.form.get('is_trending') == 'on'
         product.is_best_selling = request.form.get('is_best_selling') == 'on'

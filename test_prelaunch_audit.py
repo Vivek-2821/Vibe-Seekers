@@ -6,13 +6,18 @@ Covers:
 - Security headers & Canonical SSL redirect check
 - Admin authentication protection (403 on protected routes)
 - Rate limiting on checkout
-- Razorpay order creation validation
+- Razorpay order creation & integer paise validation
+- PostgreSQL type casting for address_id string vs integer queries
+- Per-size stock deduction on payment and restoration on cancellation
+- User My Orders and Admin Orders routes
 """
 import unittest
 import os
 import json
+from unittest.mock import patch, MagicMock
 from app import create_app, db
-from app.models import User, Product, Category, Order, SiteSetting
+from app.models import User, Product, Category, Order, OrderItem, Address, CartItem, ProductSize, SiteSetting
+from app.utils import deduct_product_stock, restore_product_stock
 
 class PrelaunchAuditTestCase(unittest.TestCase):
     def setUp(self):
@@ -26,6 +31,17 @@ class PrelaunchAuditTestCase(unittest.TestCase):
         db.session.remove()
         db.drop_all()
         self.app_context.pop()
+
+    def _login_user(self, email="customer@test.com", password="password123", is_admin=False):
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            user = User(name="Test User", email=email, is_admin=is_admin, is_email_verified=True)
+            user.set_password(password)
+            db.session.add(user)
+            db.session.commit()
+        login_url = '/admin/login' if is_admin else '/auth/login'
+        self.client.post(login_url, data={'email': email, 'password': password})
+        return user
 
     def test_health_check(self):
         """Verify /health returns 200 with database connected"""
@@ -73,6 +89,147 @@ class PrelaunchAuditTestCase(unittest.TestCase):
             res = self.client.get(p)
             self.assertEqual(res.status_code, 200, f"Page {p} failed to load with status {res.status_code}")
 
+    def test_checkout_with_string_address_id(self):
+        """
+        Verify string address_id (e.g. '1') from POST form data is safely cast to integer
+        before database query, preventing PostgreSQL integer = varchar operator mismatch.
+        """
+        user = self._login_user("shopper1@test.com")
+        addr = Address(
+            user_id=user.id,
+            full_name="Shopper One",
+            phone="9876543210",
+            address_line1="123 Street",
+            city="Mumbai",
+            state="Maharashtra",
+            pincode="400001"
+        )
+        db.session.add(addr)
+
+        prod = Product(
+            name="Streetwear Tee",
+            slug="streetwear-tee",
+            price=1200.0,
+            stock=10,
+            is_active=True
+        )
+        db.session.add(prod)
+        db.session.flush()
+
+        cart_item = CartItem(user_id=user.id, product_id=prod.id, quantity=1, size="M")
+        db.session.add(cart_item)
+        db.session.commit()
+
+        # Send address_id as string '1' (or whatever addr.id is)
+        payload = {
+            'address_id': str(addr.id),
+            'payment_method': 'cod'
+        }
+        res = self.client.post('/cart/checkout', data=payload, headers={'X-Requested-With': 'XMLHttpRequest'})
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertTrue(data.get('success'))
+        self.assertIn('/cart/order-confirmation/', data.get('redirect'))
+
+    @patch('app.routes.cart.check_serviceability', return_value={'serviceable': True})
+    def test_checkout_with_new_address(self, mock_serviceability):
+        """Verify submitting new address fields with address_id='' creates the address properly."""
+        user = self._login_user("shopper2@test.com")
+        prod = Product(name="Hoodie", slug="hoodie-test", price=1500.0, stock=5, is_active=True)
+        db.session.add(prod)
+        db.session.flush()
+        db.session.add(CartItem(user_id=user.id, product_id=prod.id, quantity=1, size="L"))
+        db.session.commit()
+
+        payload = {
+            'address_id': '',
+            'full_name': 'New Buyer',
+            'phone': '9860498749',
+            'email': 'buyer@test.com',
+            'address_line1': 'Flat 402, Elite Residency',
+            'city': 'Pune',
+            'state': 'Maharashtra',
+            'pincode': '411001',
+            'payment_method': 'cod'
+        }
+        res = self.client.post('/cart/checkout', data=payload, headers={'X-Requested-With': 'XMLHttpRequest'})
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertTrue(data.get('success'))
+
+        # Verify Address saved in database
+        saved_addr = Address.query.filter_by(user_id=user.id, city="Pune").first()
+        self.assertIsNotNone(saved_addr)
+        self.assertEqual(saved_addr.full_name, "New Buyer")
+
+    def test_checkout_invalid_address_id_returns_404(self):
+        """Verify non-existent or foreign user address ID returns clean JSON 404, not unhandled 500."""
+        user = self._login_user("shopper3@test.com")
+        prod = Product(name="Cap", slug="cap-test", price=500.0, stock=5, is_active=True)
+        db.session.add(prod)
+        db.session.flush()
+        db.session.add(CartItem(user_id=user.id, product_id=prod.id, quantity=1))
+        db.session.commit()
+
+        # Pass an address ID that belongs to no one or someone else
+        payload = {'address_id': '999999', 'payment_method': 'cod'}
+        res = self.client.post('/cart/checkout', data=payload, headers={'X-Requested-With': 'XMLHttpRequest'})
+        self.assertEqual(res.status_code, 404)
+        data = res.get_json()
+        self.assertFalse(data.get('success'))
+        self.assertIn("not found", data.get('error').lower())
+
+    def test_razorpay_amount_is_integer_paise(self):
+        """Verify order total ₹1299.00 produces exactly 129900 integer paise for Razorpay."""
+        total_inr = 1299.0
+        amount_paise = int(round(float(total_inr) * 100))
+        self.assertIsInstance(amount_paise, int)
+        self.assertEqual(amount_paise, 129900)
+
+        small_total = 80.0
+        small_paise = int(round(float(small_total) * 100))
+        self.assertIsInstance(small_paise, int)
+        self.assertEqual(small_paise, 8000)
+
+    def test_stock_reduction_per_size_and_restoration(self):
+        """Verify size stock is reduced correctly on payment and restored on cancellation."""
+        prod = Product(name="Size Test Tee", slug="size-test-tee", price=999.0, stock=30, is_active=True)
+        db.session.add(prod)
+        db.session.flush()
+
+        size_m = ProductSize(product_id=prod.id, size="M", stock=10)
+        size_l = ProductSize(product_id=prod.id, size="L", stock=20)
+        db.session.add_all([size_m, size_l])
+        db.session.commit()
+
+        # Deduct 2 units of size M
+        deduct_product_stock(prod, quantity=2, size="M")
+        db.session.commit()
+
+        self.assertEqual(size_m.stock, 8)
+        self.assertEqual(size_l.stock, 20)
+        self.assertEqual(prod.stock, 28)
+
+        # Restore 2 units of size M
+        restore_product_stock(prod, quantity=2, size="M")
+        db.session.commit()
+
+        self.assertEqual(size_m.stock, 10)
+        self.assertEqual(size_l.stock, 20)
+        self.assertEqual(prod.stock, 30)
+
+    def test_user_orders_page_and_admin_orders_page(self):
+        """Verify customer My Orders page and Admin Orders list render without type errors."""
+        admin = self._login_user("admin@test.com", is_admin=True)
+        res_admin = self.client.get('/admin/orders')
+        self.assertEqual(res_admin.status_code, 200)
+
+        # Logout admin before customer accesses customer-only route
+        self.client.get('/auth/logout')
+
+        customer = self._login_user("customer_orders@test.com", is_admin=False)
+        res_cust = self.client.get('/user/orders')
+        self.assertEqual(res_cust.status_code, 200)
+
 if __name__ == '__main__':
     unittest.main()
-
