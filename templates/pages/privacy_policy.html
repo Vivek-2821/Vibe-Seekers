@@ -1,25 +1,89 @@
 {% extends 'base.html' %}
+{% block title %}Privacy Policy – Vibe Seekers{% endblock %}
 {% block content %}
-<section style="padding: 80px 24px; max-width: 780px; margin: 0 auto;">
-  <h1 style="font-size: 42px; font-weight: 800; color: #e2e8f0; margin-bottom: 8px;">Privacy Policy</h1>
-  <p style="color: #64748b; font-size: 14px; margin-bottom: 40px;">Last updated: November 2024</p>
-
-  <div style="display: flex; flex-direction: column; gap: 24px; color: #94a3b8; line-height: 1.8; font-size: 15px;">
-    {% set sections = [
-      ('Information We Collect', 'We collect information you provide directly, such as your name, email address, phone number, and shipping address when you create an account or place an order. We also collect browsing data to improve your experience.'),
-      ('How We Use Your Information', 'Your information is used to process orders and payments, send order confirmations and tracking updates, provide customer support, send promotional emails (only with your consent), and improve our website and services.'),
-      ('Data Sharing', 'We do not sell or rent your personal information to third parties. We share data only with trusted service providers (courier partners, payment processors) who help us operate our business, and as required by law.'),
-      ('Cookies', 'We use cookies to remember your cart, preferences, and login session. You can disable cookies in your browser settings, but some features may not work correctly.'),
-      ('Data Security', 'We implement industry-standard security measures to protect your personal information. All payment transactions are encrypted. However, no method of transmission over the Internet is 100% secure.'),
-      ('Your Rights', 'You have the right to access, correct, or delete your personal data. To exercise these rights, contact us at hello@vibeseekers.com. We will respond within 7 business days.'),
-      ('Contact Us', 'If you have questions about this Privacy Policy, contact us at:<br/><strong style="color:#e2e8f0;">hello@vibeseekers.com</strong>')
-    ] %}
-    {% for heading, body in sections %}
-    <div style="background: rgba(17,17,24,0.6); border: 1px solid #2a2a3a; border-radius: 14px; padding: 28px;">
-      <h2 style="font-size: 18px; font-weight: 700; color: #e2e8f0; margin-bottom: 12px;">{{ loop.index }}. {{ heading }}</h2>
-      <p>{{ body | safe }}</p>
-    </div>
-    {% endfor %}
+<div class="page-hero">
+  <div class="container">
+    <h1>Privacy Policy</h1>
+    <p class="breadcrumbs"><a href="{{ url_for('main.index') }}">Home</a> / Privacy Policy</p>
   </div>
-</section>
+</div>
+
+<div class="container" style="padding-bottom: 80px; max-width: 860px;">
+  <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 36px 32px; margin-bottom: 32px;">
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;">
+      Effective Date: <strong>1st January 2024</strong> | Last Updated: <strong>November 2024</strong>
+    </p>
+    <p style="font-size: 0.95rem; line-height: 1.7; color: var(--text);">
+      Welcome to <strong>Vibe Seekers</strong> (operating as <em>[YOUR REGISTERED BUSINESS NAME]</em>, referred to as "we", "our", or "us"). We operate the e-commerce website <a href="https://vibeseekers.in" style="color:var(--accent);font-weight:600;">https://vibeseekers.in</a>. We are deeply committed to protecting your privacy and ensuring your personal information is handled in a safe, transparent, and compliant manner under the <em>Information Technology Act, 2000</em> and the <em>Consumer Protection (E-Commerce) Rules, 2020</em>.
+    </p>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 24px; color: var(--text-muted); line-height: 1.8; font-size: 0.95rem;">
+    <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 12px;">1. Information We Collect</h2>
+      <p style="margin-bottom: 12px;">When you visit, browse, or purchase from Vibe Seekers, we collect personal and non-personal data:</p>
+      <ul style="padding-left: 20px; list-style-type: disc;">
+        <li><strong style="color:var(--text)">Contact & Identity:</strong> Your full name, mobile phone number, email address, and delivery shipping addresses.</li>
+        <li><strong style="color:var(--text)">Order & Payment Information:</strong> Products purchased, sizes, quantities, order totals, and transaction reference IDs. <em>Note: All credit card, debit card, UPI, and net banking payments are securely processed by Razorpay Software Private Limited. We never store or retain full credit/debit card numbers or UPI MPINs on our servers.</em></li>
+        <li><strong style="color:var(--text)">Technical & Device Data:</strong> IP address, browser type, operating system, device identifiers, and pages visited, collected via cookies and log files to optimize website performance and prevent fraudulent activity.</li>
+      </ul>
+    </div>
+
+    <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 12px;">2. How We Use Your Information</h2>
+      <p style="margin-bottom: 10px;">We process your data for legitimate e-commerce purposes only:</p>
+      <ul style="padding-left: 20px; list-style-type: disc;">
+        <li>To fulfill, pack, ship, and deliver your orders through our courier partners.</li>
+        <li>To send transactional updates: order confirmations, shipping tracking notifications, and invoice receipts via Email or SMS/WhatsApp.</li>
+        <li>To process refunds, address cancellations, and handle customer service inquiries.</li>
+        <li>To detect, prevent, and protect against fraudulent checkout attempts, unauthorized access, or abusive behavior.</li>
+        <li>To send occasional promotional offers, new drop alerts, and newsletter updates (only if you opt-in; you can unsubscribe at any time).</li>
+      </ul>
+    </div>
+
+    <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 12px;">3. Sharing of Information with Third Parties</h2>
+      <p style="margin-bottom: 12px;">We strictly do not sell, rent, trade, or monetize your personal information. We share relevant data only with trusted partners necessary to complete your purchase:</p>
+      <ul style="padding-left: 20px; list-style-type: disc;">
+        <li><strong style="color:var(--text)">Payment Gateways:</strong> <em>Razorpay Software Private Limited</em> for end-to-end encrypted payment capture, authentication, and refunds.</li>
+        <li><strong style="color:var(--text)">Logistics & Courier Aggregators:</strong> <em>Shiprocket</em> and contracted delivery carriers (such as Bluedart, Delhivery, DTDC, Shadowfax) for parcel pickup, transit, and doorstep delivery.</li>
+        <li><strong style="color:var(--text)">Legal Requirements:</strong> If mandated by law enforcement, statutory authorities, court orders, or regulations under Indian jurisdiction.</li>
+      </ul>
+    </div>
+
+    <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 12px;">4. Cookies and Tracking Technologies</h2>
+      <p>
+        We use essential session cookies to maintain your shopping cart, authenticate user logins, and preserve CSRF security tokens across page navigation. You may disable cookies through your browser settings, though doing so may prevent adding items to your cart or completing orders.
+      </p>
+    </div>
+
+    <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 12px;">5. Data Security & Storage</h2>
+      <p>
+        We implement industry-standard 256-bit SSL encryption (HTTPS) across our entire platform. Passwords are cryptographically hashed using salted SHA-256 / Werkzeug security before storage. While we enforce rigorous measures to safeguard data, no transmission over the internet can be 100% immune; we encourage you to maintain a unique, secret password.
+      </p>
+    </div>
+
+    <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 12px;">6. Your Rights</h2>
+      <p>
+        As a customer, you have the right to request access to the personal data we hold about you, request corrections to incorrect shipping details, or request account deactivation. To exercise these rights, please email us at <strong style="color:var(--text)">[YOUR SUPPORT EMAIL]</strong> (or <em>{{ site_settings.get('store_email', 'hello@vibeseekers.in') }}</em>).
+      </p>
+    </div>
+
+    <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 12px;">7. Grievance Officer & Contact Details</h2>
+      <p style="margin-bottom: 12px;">In accordance with the Information Technology Act 2000 and consumer rules, the details of the Grievance Officer are:</p>
+      <div style="line-height: 1.7; background: var(--bg-soft); padding: 16px 20px; border-radius: var(--radius); border: 1px solid var(--border); font-size: 0.9rem;">
+        <strong>Entity Name:</strong> [YOUR REGISTERED BUSINESS NAME] (Vibe Seekers)<br>
+        <strong>Registered Address:</strong> [YOUR REGISTERED BUSINESS ADDRESS]<br>
+        <strong>Email:</strong> {{ site_settings.get('store_email', 'hello@vibeseekers.in') }}<br>
+        <strong>Phone:</strong> {{ site_settings.get('store_phone', '+91 98604 98749') }}<br>
+        <strong>Working Hours:</strong> Monday – Saturday, 10:00 AM – 7:00 PM IST<br>
+        <strong>Response Time:</strong> Within 24–48 business hours
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}

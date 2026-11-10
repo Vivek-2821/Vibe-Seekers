@@ -30,6 +30,15 @@ def create_app(config_name=None):
     # Configuration
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'vibe-seekers-secret-key-2024-change-in-production')
     
+    # Cookie security settings
+    is_prod = os.environ.get('FLASK_ENV') == 'production' or not app.debug
+    app.config['SESSION_COOKIE_SECURE'] = is_prod
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    app.config['REMEMBER_COOKIE_SECURE'] = is_prod
+    app.config['REMEMBER_COOKIE_HTTPONLY'] = True
+    app.config['REMEMBER_COOKIE_SAMESITE'] = 'Lax'
+    
     # Database config (support Render PostgreSQL and local SQLite fallback)
     db_url = os.environ.get('DATABASE_URL')
     if not db_url or not db_url.strip():
@@ -63,7 +72,7 @@ def create_app(config_name=None):
     app.config['MAIL_USE_TLS'] = True
     app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME', '')
     app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD', '')
-    app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', 'noreply@vibeseekers.com')
+    app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', 'noreply@vibeseekers.in')
 
     # Initialize extensions
     db.init_app(app)
@@ -143,9 +152,38 @@ def create_app(config_name=None):
             now=_dt.utcnow()
         )
 
-    # Performance: Static caching and gzip compression for mobile
+    # Domain Canonicalization & HTTPS Enforcement
+    @app.before_request
+    def enforce_canonical_and_ssl():
+        if config_name == 'testing' or app.debug:
+            return None
+
+        host = (request.host or '').lower().split(':')[0]
+        # Ignore localhost / local IP requests during local testing
+        if host in ('localhost', '127.0.0.1', 'testserver'):
+            return None
+
+        target_host = 'vibeseekers.in'
+        needs_host_redirect = host.endswith('onrender.com') or host.startswith('www.')
+        proto = request.headers.get('X-Forwarded-Proto', request.scheme).lower()
+        needs_ssl_redirect = (proto != 'https')
+
+        if needs_host_redirect or (needs_ssl_redirect and host == target_host):
+            qs = f"?{request.query_string.decode('utf-8')}" if request.query_string else ""
+            from flask import redirect
+            return redirect(f"https://{target_host}{request.path}{qs}", code=301)
+
+    # Performance & Security Headers
     @app.after_request
     def optimize_response(response):
+        # Security headers
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+        response.headers['X-XSS-Protection'] = '1; mode=block'
+        response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        if not app.debug:
+            response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+
         if request.path.startswith('/static/'):
             response.headers['Cache-Control'] = 'public, max-age=86400'
         
@@ -181,7 +219,7 @@ def create_app(config_name=None):
             # Ensure default admin exists
             try:
                 from .models import User
-                admin_email = os.environ.get('ADMIN_EMAIL', 'admin@vibeseekers.com')
+                admin_email = os.environ.get('ADMIN_EMAIL', 'admin@vibeseekers.in')
                 admin_pass = os.environ.get('ADMIN_PASSWORD', 'Admin@1234')
                 admin = User.query.filter_by(email=admin_email).first()
                 if not admin:
@@ -207,7 +245,7 @@ def create_app(config_name=None):
                 from .models import SiteSetting
                 defaults = {
                     'store_name': 'Vibe Seekers',
-                    'store_email': os.environ.get('STORE_EMAIL', 'hello@vibeseekers.com'),
+                    'store_email': os.environ.get('STORE_EMAIL', 'hello@vibeseekers.in'),
                     'store_phone': os.environ.get('STORE_PHONE', '+91 98604 98749'),
                     'store_address': 'India',
                     'announcement_text': '🔥 FREE SHIPPING on orders above ₹999 | Use code VIBE10 for 10% off your first order!',

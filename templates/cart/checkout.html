@@ -33,6 +33,11 @@
             <div style="flex:1;">
               <strong style="color:var(--error);font-size:0.95rem;display:block;margin-bottom:4px;" id="checkout-error-title">Unable to process order</strong>
               <div id="checkout-error-message" style="font-size:0.85rem;color:#fca5a5;line-height:1.5;"></div>
+              <div id="checkout-retry-container" style="display:none;margin-top:12px;">
+                <button type="button" id="btn-retry-payment" onclick="document.getElementById('checkout-form').requestSubmit()" class="btn btn-primary btn-sm" style="background:var(--accent);font-size:0.82rem;padding:6px 14px;border-radius:6px;">
+                  🔄 Try Payment Again
+                </button>
+              </div>
             </div>
             <button type="button" onclick="document.getElementById('checkout-error-banner').style.display='none'" style="background:none;border:none;color:#94a3b8;font-size:18px;cursor:pointer;">✕</button>
           </div>
@@ -270,14 +275,18 @@ document.querySelectorAll('input[name="payment_method"]').forEach(r => {
 });
 updatePaymentSelection();
 
-/* ── In-place Error Notification ── */
-function showCheckoutError(title, message) {
+/* ── In-place Error Notification & Retry ── */
+function showCheckoutError(title, message, showRetry = false) {
   const banner = document.getElementById('checkout-error-banner');
   const titleEl = document.getElementById('checkout-error-title');
   const msgEl = document.getElementById('checkout-error-message');
+  const retryContainer = document.getElementById('checkout-retry-container');
   if (banner && titleEl && msgEl) {
     titleEl.textContent = title || 'Error';
     msgEl.innerHTML = message || 'Please check your information and try again.';
+    if (retryContainer) {
+      retryContainer.style.display = showRetry ? 'block' : 'none';
+    }
     banner.style.display = 'block';
     banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
@@ -286,6 +295,8 @@ function showCheckoutError(title, message) {
 function clearCheckoutError() {
   const banner = document.getElementById('checkout-error-banner');
   if (banner) banner.style.display = 'none';
+  const retryContainer = document.getElementById('checkout-retry-container');
+  if (retryContainer) retryContainer.style.display = 'none';
 }
 
 function showFieldError(fieldId, msg) {
@@ -300,6 +311,32 @@ function clearFieldError(fieldId) {
   const errDiv = document.getElementById('err-' + fieldId);
   if (input) input.classList.remove('field-error');
   if (errDiv) errDiv.style.display = 'none';
+}
+
+// Clear errors dynamically on input
+['full_name', 'phone', 'email', 'address_line1', 'city', 'state', 'pincode'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) {
+    el.addEventListener('input', () => clearFieldError(id));
+    el.addEventListener('change', () => clearFieldError(id));
+  }
+});
+
+/* ── Fetch with Timeout Helper (15 seconds) ── */
+async function fetchWithTimeout(resource, options = {}, timeoutMs = 15000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(resource, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(id);
+    return response;
+  } catch (error) {
+    clearTimeout(id);
+    throw error;
+  }
 }
 
 /* ── Shiprocket Pincode Check ── */
@@ -322,7 +359,7 @@ async function checkPincode(pin) {
   }
 
   try {
-    const res = await fetch(`/api/shipping/check-serviceability?pincode=${pin}`);
+    const res = await fetchWithTimeout(`/api/shipping/check-serviceability?pincode=${pin}`, {}, 8000);
     const json = await res.json();
     const data = json.data || {};
     if (data.serviceable) {
@@ -372,15 +409,15 @@ function validateForm() {
   const pin = document.getElementById('pincode')?.value.trim();
 
   if (!name || name.length < 2) { showFieldError('full_name', 'Full name is required.'); errors.push('Full name'); } else { clearFieldError('full_name'); }
-  if (!phone || !/^[6-9][0-9]{9}$/.test(phone)) { showFieldError('phone', 'Valid 10-digit mobile number required.'); errors.push('Mobile number'); } else { clearFieldError('phone'); }
-  if (!email || !email.includes('@')) { showFieldError('email', 'Valid email address required.'); errors.push('Email address'); } else { clearFieldError('email'); }
-  if (!addr1 || addr1.length < 5) { showFieldError('address_line1', 'Street address is required.'); errors.push('Street address'); } else { clearFieldError('address_line1'); }
-  if (!city) { showFieldError('city', 'City is required.'); errors.push('City'); } else { clearFieldError('city'); }
-  if (!state) { showFieldError('state', 'State is required.'); errors.push('State'); } else { clearFieldError('state'); }
+  if (!phone || !/^[6-9][0-9]{9}$/.test(phone)) { showFieldError('phone', 'Valid 10-digit Indian mobile number required (starting 6-9).'); errors.push('Mobile number'); } else { clearFieldError('phone'); }
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showFieldError('email', 'Valid email address required.'); errors.push('Email address'); } else { clearFieldError('email'); }
+  if (!addr1 || addr1.length < 5) { showFieldError('address_line1', 'Street address (at least 5 characters) is required.'); errors.push('Street address'); } else { clearFieldError('address_line1'); }
+  if (!city || city.length < 2) { showFieldError('city', 'City is required.'); errors.push('City'); } else { clearFieldError('city'); }
+  if (!state) { showFieldError('state', 'Please select your state.'); errors.push('State'); } else { clearFieldError('state'); }
   if (!pin || !/^[1-9][0-9]{5}$/.test(pin)) { showFieldError('pincode', 'Valid 6-digit Indian PIN code required.'); errors.push('PIN code'); } else { clearFieldError('pincode'); }
 
   if (errors.length > 0) {
-    showCheckoutError('Missing Information', `Please fill in all required fields: ${errors.join(', ')}.`);
+    showCheckoutError('Missing or Invalid Details', `Please correct the following fields:<br>• ${errors.join('<br>• ')}`, false);
     return false;
   }
   return true;
@@ -414,17 +451,17 @@ if (checkoutForm) {
 
     try {
       const formData = new FormData(checkoutForm);
-      const resp = await fetch(checkoutForm.action, {
+      const resp = await fetchWithTimeout(checkoutForm.action, {
         method: 'POST',
         body: formData,
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
-      });
+      }, 15000);
 
       const data = await resp.json();
 
       if (!resp.ok || !data.success) {
-        const errMsg = data.errors ? data.errors.join('<br>') : (data.error || 'Unable to place order. Please check your details.');
-        showCheckoutError('Order Submission Notice', errMsg);
+        const errMsg = data.errors ? data.errors.join('<br>') : (data.error || 'Unable to place order. Please verify your details.');
+        showCheckoutError('Order Submission Notice', errMsg, false);
         setButtonLoading(false);
         return;
       }
@@ -432,7 +469,7 @@ if (checkoutForm) {
       // ── Razorpay Payment Flow ──
       if (data.razorpay) {
         if (!window.Razorpay) {
-          showCheckoutError('Payment Gateway Error', 'Razorpay SDK failed to load. Please refresh and try again.');
+          showCheckoutError('Payment Gateway Error', 'Razorpay checkout failed to load. Please check your internet connection and try again.', true);
           setButtonLoading(false);
           return;
         }
@@ -455,14 +492,14 @@ if (checkoutForm) {
           },
           modal: {
             ondismiss: function() {
-              showCheckoutError('Payment Incomplete', 'Payment was cancelled or closed. You can try again or select Cash on Delivery.');
+              showCheckoutError('Payment Cancelled', 'The payment window was closed before completion. Your cart items are preserved. Click below to try again or switch to Cash on Delivery.', true);
               setButtonLoading(false);
             }
           },
           handler: async function(paymentResponse) {
             btnText.textContent = 'Verifying Payment…';
             try {
-              const verifyResp = await fetch('/cart/payment/verify', {
+              const verifyResp = await fetchWithTimeout('/cart/payment/verify', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -475,16 +512,17 @@ if (checkoutForm) {
                   razorpay_order_id: paymentResponse.razorpay_order_id,
                   razorpay_signature: paymentResponse.razorpay_signature
                 })
-              });
+              }, 15000);
+
               const verifyData = await verifyResp.json();
               if (verifyData.success) {
                 window.location.href = verifyData.redirect;
               } else {
-                showCheckoutError('Verification Notice', verifyData.error || 'Payment verification failed. Please contact support.');
+                showCheckoutError('Verification Notice', verifyData.error || 'Payment verification failed. If your money was deducted, our team will confirm your order manually. Please contact support.', true);
                 setButtonLoading(false);
               }
             } catch (verErr) {
-              showCheckoutError('Network Notice', 'Network issue during verification. If money was deducted, your order will be confirmed shortly.');
+              showCheckoutError('Network Verification Notice', 'Payment was submitted, but verification timed out. If money was deducted, your order will be confirmed automatically via webhook within 5 minutes.', true);
               setButtonLoading(false);
             }
           }
@@ -492,7 +530,8 @@ if (checkoutForm) {
 
         const rzp = new Razorpay(rzpOptions);
         rzp.on('payment.failed', function(resp) {
-          showCheckoutError('Payment Failed', resp.error.description || 'Payment was declined. Please try another card, UPI ID, or Cash on Delivery.');
+          const detail = resp && resp.error && resp.error.description ? resp.error.description : 'Payment could not be completed.';
+          showCheckoutError('Payment Declined', `${detail} You can retry with another payment method or select Cash on Delivery.`, true);
           setButtonLoading(false);
         });
         rzp.open();
@@ -501,7 +540,11 @@ if (checkoutForm) {
         window.location.href = data.redirect;
       }
     } catch (err) {
-      showCheckoutError('Network Notice', 'Unable to reach the server. Please check your internet connection and try again.');
+      if (err.name === 'AbortError') {
+        showCheckoutError('Request Timeout', 'The server took too long to respond. Please check your connection and try again.', true);
+      } else {
+        showCheckoutError('Connection Error', 'Unable to reach the server. Please check your internet connection and try again.', true);
+      }
       setButtonLoading(false);
     }
   });

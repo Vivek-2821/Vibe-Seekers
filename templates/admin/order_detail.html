@@ -177,13 +177,17 @@
           <div class="form-group">
             <label class="form-label">Update Status</label>
             <select name="status" class="form-control">
-              {% for s in ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'] %}
-              <option value="{{ s }}" {% if order.status == s %}selected{% endif %}>{{ s.capitalize() }}</option>
+              {% for s in ['pending', 'paid', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled', 'refunded'] %}
+              <option value="{{ s }}" {% if order.status == s %}selected{% endif %}>{{ s.replace('_', ' ').capitalize() }}</option>
               {% endfor %}
             </select>
           </div>
           <div class="form-group">
-            <label class="form-label">Tracking Number</label>
+            <label class="form-label">Courier Name</label>
+            <input type="text" name="courier_name" class="form-control" value="{{ order.courier_name or '' }}" placeholder="e.g. Bluedart, Delhivery, DTDC"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tracking Number / AWB</label>
             <input type="text" name="tracking_number" class="form-control" value="{{ order.tracking_number or order.awb_code or '' }}" placeholder="AWB / Tracking ID"/>
           </div>
           <button type="submit" class="btn btn-primary" style="width:100%;">Update Order</button>

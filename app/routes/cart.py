@@ -8,8 +8,8 @@ from flask import (Blueprint, render_template, redirect, url_for, flash,
                    request, jsonify, session, current_app)
 from flask_login import login_required, current_user
 from app.models import CartItem, Product, Order, OrderItem, Coupon, Address, SiteSetting
-from app.utils import generate_order_number, deduct_product_stock, restore_product_stock
-from app.email import send_order_confirmation_email
+from app.utils import generate_order_number, deduct_product_stock, restore_product_stock, check_rate_limit
+from app.email import send_order_confirmation_email, send_admin_new_order_email
 from app.shiprocket import check_serviceability
 from app import db, csrf
 
@@ -30,7 +30,7 @@ def calculate_cart_totals(cart_items, coupon=None, user=None):
     Calculate cart financial summary:
     - Subtotal
     - Discount (validates min order, expiry, usage limit, and first order rules)
-    - Shipping (Free above ₹999, else ₹79)
+    - Shipping (Free above free_shipping_threshold, else flat_shipping_rate)
     - Total
     """
     subtotal = sum(
@@ -70,7 +70,20 @@ def calculate_cart_totals(cart_items, coupon=None, user=None):
             coupon_code = 'FIRST10'
             discount = round(subtotal * 0.10, 2)
 
-    shipping = 0 if subtotal >= 999 else (79 if subtotal > 0 else 0)
+    # Configurable shipping rules from admin SiteSetting
+    free_shipping_threshold = 999.0
+    flat_shipping_rate = 79.0
+    try:
+        t_setting = SiteSetting.query.filter_by(key='free_shipping_threshold').first()
+        if t_setting and t_setting.value:
+            free_shipping_threshold = float(t_setting.value)
+        r_setting = SiteSetting.query.filter_by(key='flat_shipping_rate').first()
+        if r_setting and r_setting.value:
+            flat_shipping_rate = float(r_setting.value)
+    except Exception:
+        pass
+
+    shipping = 0.0 if subtotal >= free_shipping_threshold else (flat_shipping_rate if subtotal > 0 else 0.0)
     total = max(0.0, round(subtotal - discount + shipping, 2))
 
     return {
@@ -79,6 +92,8 @@ def calculate_cart_totals(cart_items, coupon=None, user=None):
         'coupon_code': coupon_code,
         'coupon_error': coupon_error,
         'shipping': shipping,
+        'free_shipping_threshold': free_shipping_threshold,
+        'flat_shipping_rate': flat_shipping_rate,
         'total': total
     }
 
@@ -279,6 +294,13 @@ def checkout():
 
     if request.method == 'POST':
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json
+        if not check_rate_limit('checkout', max_requests=15, window_seconds=300):
+            msg = 'Too many requests. Please wait a few minutes before trying again.'
+            if is_ajax:
+                return jsonify({'success': False, 'errors': [msg]}), 429
+            flash(msg, 'error')
+            return redirect(url_for('cart.view_cart'))
+
         data = request.get_json(silent=True) or request.form
         payment_method = data.get('payment_method', 'cod').lower()
         if payment_method not in ('cod', 'razorpay'):
@@ -355,6 +377,23 @@ def checkout():
                                    addresses=addresses, razorpay_key_id=razorpay_key_id,
                                    title='Checkout – Vibe Seekers')
 
+        # ── Pre-checkout Stock Verification ────────────────────────────────
+        for item in cart_items:
+            if not item.product or not item.product.is_active:
+                err_msg = f"'{item.product.name if item.product else 'An item'}' is no longer available. Please update your cart."
+                if is_ajax:
+                    return jsonify({'success': False, 'errors': [err_msg]}), 400
+                flash(err_msg, 'error')
+                return redirect(url_for('cart.view_cart'))
+            avail = item.product.get_size_stock(item.size) if item.size else item.product.total_stock
+            if avail < item.quantity:
+                sz_label = f" in size {item.size}" if item.size else ""
+                err_msg = f"Sorry, '{item.product.name}'{sz_label} only has {avail} left in stock (you requested {item.quantity})."
+                if is_ajax:
+                    return jsonify({'success': False, 'errors': [err_msg]}), 400
+                flash(err_msg, 'error')
+                return redirect(url_for('cart.view_cart'))
+
         # ── Create order record ─────────────────────────────────────────────
         order = Order(
             order_number=generate_order_number(),
@@ -400,30 +439,39 @@ def checkout():
             key_id = os.environ.get('RAZORPAY_KEY_ID', '').strip()
             key_secret = os.environ.get('RAZORPAY_KEY_SECRET', '').strip()
             amount_paise = int(round(order.total * 100))
-            rzp_order_id = None
 
-            if key_id and key_secret:
-                try:
-                    import razorpay
-                    client = razorpay.Client(auth=(key_id, key_secret))
-                    rzp_order = client.order.create({
-                        'amount': amount_paise,
-                        'currency': 'INR',
-                        'receipt': order.order_number,
-                        'payment_capture': 1,
-                        'notes': {
-                            'order_id': str(order.id),
-                            'customer_email': order.shipping_email
-                        }
-                    })
-                    rzp_order_id = rzp_order.get('id')
-                    order.razorpay_order_id = rzp_order_id
-                    print(f"💳 [RAZORPAY ORDER CREATED] ID: {rzp_order_id} | Amount: ₹{order.total}")
-                except Exception as ex:
-                    print(f"❌ [RAZORPAY API EXCEPTION]: {ex}")
-                    rzp_order_id = f"rzp_test_{order.order_number}"
-            else:
-                rzp_order_id = f"rzp_test_{order.order_number}"
+            if not key_id or not key_secret:
+                current_app.logger.error("RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET is not configured.")
+                db.session.rollback()
+                return jsonify({
+                    'success': False,
+                    'errors': ['Online payments are currently undergoing maintenance. Please select Cash on Delivery or try again later.']
+                }), 400
+
+            try:
+                import razorpay
+                client = razorpay.Client(auth=(key_id, key_secret))
+                rzp_order = client.order.create({
+                    'amount': amount_paise,
+                    'currency': 'INR',
+                    'receipt': order.order_number,
+                    'payment_capture': 1,
+                    'notes': {
+                        'order_id': str(order.id),
+                        'order_number': order.order_number,
+                        'customer_email': order.shipping_email
+                    }
+                })
+                rzp_order_id = rzp_order.get('id')
+                order.razorpay_order_id = rzp_order_id
+                print(f"💳 [RAZORPAY ORDER CREATED] ID: {rzp_order_id} | Amount: ₹{order.total}")
+            except Exception as ex:
+                current_app.logger.error(f"Razorpay order creation failed for order #{order.order_number}: {ex}")
+                db.session.rollback()
+                return jsonify({
+                    'success': False,
+                    'errors': ['Unable to establish secure payment session with Razorpay. Please try again or select Cash on Delivery.']
+                }), 500
 
             db.session.commit()
 
@@ -455,11 +503,12 @@ def checkout():
         session.pop('coupon_code', None)
         db.session.commit()
 
-        # Dispatch order confirmation email
+        # Dispatch order confirmation emails
         try:
             send_order_confirmation_email(order)
+            send_admin_new_order_email(order)
         except Exception as ex:
-            print(f"⚠️ [EMAIL DISPATCH NOTICE]: {ex}")
+            current_app.logger.error(f"COD order confirmation email dispatch error: {ex}")
 
         if is_ajax:
             return jsonify({
@@ -487,66 +536,83 @@ def verify_payment():
     Activates order, deducts inventory stock, clears cart, and dispatches confirmation email.
     """
     data = request.get_json(silent=True) or request.form
-    rzp_payment_id = data.get('razorpay_payment_id', '').strip()
-    rzp_order_id = data.get('razorpay_order_id', '').strip()
-    rzp_signature = data.get('razorpay_signature', '').strip()
-    order_number = data.get('order_number', '').strip()
+    rzp_payment_id = (data.get('razorpay_payment_id') or '').strip()
+    rzp_order_id = (data.get('razorpay_order_id') or '').strip()
+    rzp_signature = (data.get('razorpay_signature') or '').strip()
+    order_number = (data.get('order_number') or '').strip()
 
-    if not order_number:
-        return jsonify({'success': False, 'error': 'Missing order reference.'}), 400
+    if not order_number or not rzp_payment_id or not rzp_signature:
+        return jsonify({'success': False, 'error': 'Incomplete payment verification payload.'}), 400
 
     order = Order.query.filter_by(order_number=order_number, user_id=current_user.id).first()
     if not order:
         return jsonify({'success': False, 'error': 'Order not found.'}), 404
 
+    # Idempotent: If already processed and marked paid, return success directly
+    if order.payment_status == 'paid':
+        return jsonify({
+            'success': True,
+            'redirect': url_for('cart.order_confirmation', order_number=order.order_number)
+        })
+
     key_id = os.environ.get('RAZORPAY_KEY_ID', '').strip()
     key_secret = os.environ.get('RAZORPAY_KEY_SECRET', '').strip()
 
+    if not key_id or not key_secret:
+        return jsonify({'success': False, 'error': 'Razorpay gateway keys are missing on the server.'}), 500
+
     # Signature verification
-    if key_id and key_secret and rzp_signature:
-        try:
-            import razorpay
-            client = razorpay.Client(auth=(key_id, key_secret))
-            client.utility.verify_payment_signature({
-                'razorpay_order_id': rzp_order_id,
-                'razorpay_payment_id': rzp_payment_id,
-                'razorpay_signature': rzp_signature
-            })
-            print(f"✅ [RAZORPAY SIGNATURE VERIFIED] Payment {rzp_payment_id} verified for order {order_number}")
-        except Exception as ex:
-            print(f"❌ [RAZORPAY SIGNATURE VERIFICATION FAILED]: {ex}")
-            return jsonify({
-                'success': False,
-                'error': 'Payment verification failed. Please try again or contact support.'
-            }), 400
+    try:
+        import razorpay
+        client = razorpay.Client(auth=(key_id, key_secret))
+        client.utility.verify_payment_signature({
+            'razorpay_order_id': rzp_order_id or order.razorpay_order_id,
+            'razorpay_payment_id': rzp_payment_id,
+            'razorpay_signature': rzp_signature
+        })
+        print(f"✅ [RAZORPAY SIGNATURE VERIFIED] Payment {rzp_payment_id} verified for order {order_number}")
+    except Exception as ex:
+        current_app.logger.error(f"Razorpay signature verification failed for #{order_number}: {ex}")
+        order.payment_status = 'failed'
+        db.session.commit()
+        return jsonify({
+            'success': False,
+            'error': 'Payment verification failed. Your payment signature could not be verified.'
+        }), 400
 
-    # Payment verified! Update order status
-    order.payment_status = 'paid'
-    order.status = 'confirmed'
-    order.razorpay_payment_id = rzp_payment_id
-    if rzp_order_id:
-        order.razorpay_order_id = rzp_order_id
+    # Payment verified! Update order status inside database transaction
+    try:
+        order.payment_status = 'paid'
+        order.status = 'confirmed'
+        order.razorpay_payment_id = rzp_payment_id
+        if rzp_order_id:
+            order.razorpay_order_id = rzp_order_id
 
-    # Deduct stock and clear cart
-    for oi in order.items:
-        if oi.product:
-            deduct_product_stock(oi.product, oi.quantity, oi.size)
+        # Deduct stock per size inside transaction
+        for oi in order.items:
+            if oi.product:
+                deduct_product_stock(oi.product, oi.quantity, oi.size)
 
-    coupon_code = session.get('coupon_code')
-    if coupon_code:
-        coupon = Coupon.query.filter_by(code=coupon_code).first()
-        if coupon:
-            coupon.uses = (coupon.uses or 0) + 1
+        coupon_code = session.get('coupon_code')
+        if coupon_code:
+            coupon = Coupon.query.filter_by(code=coupon_code).first()
+            if coupon:
+                coupon.uses = (coupon.uses or 0) + 1
 
-    CartItem.query.filter_by(user_id=current_user.id).delete()
-    session.pop('coupon_code', None)
-    db.session.commit()
+        CartItem.query.filter_by(user_id=current_user.id).delete()
+        session.pop('coupon_code', None)
+        db.session.commit()
+    except Exception as ex:
+        db.session.rollback()
+        current_app.logger.error(f"Database error finalizing verified order #{order_number}: {ex}")
+        return jsonify({'success': False, 'error': 'Database error finalizing order.'}), 500
 
-    # Send confirmation email
+    # Send confirmation emails
     try:
         send_order_confirmation_email(order)
+        send_admin_new_order_email(order)
     except Exception as ex:
-        print(f"⚠️ [EMAIL DISPATCH NOTICE]: {ex}")
+        current_app.logger.error(f"Email dispatch error for #{order_number}: {ex}")
 
     return jsonify({
         'success': True,
@@ -559,13 +625,16 @@ def verify_payment():
 def razorpay_webhook():
     """
     Razorpay server-to-server webhook.
-    Captures async payment events and marks orders paid.
+    Captures async payment events: payment.captured, order.paid, payment.failed.
+    Fully idempotent and cryptographically verified.
     """
     payload = request.get_data(as_text=True)
     signature = request.headers.get('X-Razorpay-Signature', '')
     webhook_secret = os.environ.get('RAZORPAY_WEBHOOK_SECRET', '').strip()
 
-    if webhook_secret and signature:
+    if webhook_secret:
+        if not signature:
+            return jsonify({'status': 'missing signature'}), 400
         try:
             import razorpay
             client = razorpay.Client(auth=(
@@ -574,11 +643,12 @@ def razorpay_webhook():
             ))
             client.utility.verify_webhook_signature(payload, signature, webhook_secret)
         except Exception as ex:
-            print(f"❌ [WEBHOOK SIGNATURE FAILED]: {ex}")
+            current_app.logger.error(f"Razorpay webhook signature verification failed: {ex}")
             return jsonify({'status': 'invalid signature'}), 400
 
     data = request.get_json(silent=True) or {}
     event = data.get('event')
+
     if event in ('payment.captured', 'order.paid'):
         entity = (data.get('payload', {}).get('payment', {}).get('entity') or
                   data.get('payload', {}).get('order', {}).get('entity') or {})
@@ -588,11 +658,41 @@ def razorpay_webhook():
         if rzp_order_id:
             order = Order.query.filter_by(razorpay_order_id=rzp_order_id).first()
             if order and order.payment_status != 'paid':
-                order.payment_status = 'paid'
-                order.status = 'confirmed'
-                order.razorpay_payment_id = rzp_payment_id
+                try:
+                    order.payment_status = 'paid'
+                    order.status = 'confirmed'
+                    order.razorpay_payment_id = rzp_payment_id
+
+                    # Deduct stock per size inside transaction
+                    for oi in order.items:
+                        if oi.product:
+                            deduct_product_stock(oi.product, oi.quantity, oi.size)
+
+                    # Clear customer cart
+                    if order.user_id:
+                        CartItem.query.filter_by(user_id=order.user_id).delete()
+
+                    db.session.commit()
+                    current_app.logger.info(f"Webhook marked order #{order.order_number} as PAID.")
+
+                    try:
+                        send_order_confirmation_email(order)
+                        send_admin_new_order_email(order)
+                    except Exception as ex:
+                        current_app.logger.error(f"Webhook email dispatch error: {ex}")
+                except Exception as ex:
+                    db.session.rollback()
+                    current_app.logger.error(f"Webhook database error for order #{order.order_number}: {ex}")
+
+    elif event == 'payment.failed':
+        entity = data.get('payload', {}).get('payment', {}).get('entity') or {}
+        rzp_order_id = entity.get('order_id')
+        if rzp_order_id:
+            order = Order.query.filter_by(razorpay_order_id=rzp_order_id).first()
+            if order and order.payment_status != 'paid':
+                order.payment_status = 'failed'
                 db.session.commit()
-                print(f"✅ [WEBHOOK ORDER UPDATED] Order #{order.order_number} marked paid.")
+                current_app.logger.info(f"Webhook recorded payment failed for order #{order.order_number}. Stock untouched.")
 
     return jsonify({'status': 'ok'}), 200
 

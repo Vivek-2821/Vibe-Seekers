@@ -9,6 +9,7 @@ from app.models import (User, Product, Category, Order, OrderItem, Coupon,
                         ContactMessage, NewsletterSubscriber, SiteSetting, Banner,
                         ProductImage, ProductSize, ProductColor, Review)
 from app.utils import save_image, slugify, restore_product_stock
+from app.email import send_order_shipped_email
 from app import db
 from datetime import datetime, timedelta
 import json
@@ -416,18 +417,45 @@ def order_detail(order_id):
 @admin_required
 def update_order_status(order_id):
     order = Order.query.get_or_404(order_id)
-    new_status = request.form.get('status')
+    old_status = (order.status or '').lower()
+    new_status = (request.form.get('status') or '').strip().lower()
     tracking = request.form.get('tracking_number', '').strip()
+    courier = request.form.get('courier_name', '').strip()
 
-    if new_status in ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled', 'refunded']:
-        order.status = new_status
-    if tracking:
-        order.tracking_number = tracking
-    if new_status == 'delivered':
-        order.payment_status = 'paid'
+    valid_statuses = ['pending', 'paid', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled', 'refunded']
+    if new_status in valid_statuses:
+        if new_status == 'paid':
+            order.payment_status = 'paid'
+            order.status = 'confirmed'
+        else:
+            order.status = new_status
 
-    db.session.commit()
-    flash(f'Order #{order.order_number} status updated to {new_status}.', 'success')
+        if tracking:
+            order.tracking_number = tracking
+        if courier:
+            order.courier_name = courier
+
+        if new_status == 'delivered':
+            order.payment_status = 'paid'
+
+        # If transitioning to shipped, send tracking notification to customer
+        if new_status == 'shipped' and old_status != 'shipped':
+            try:
+                send_order_shipped_email(order)
+            except Exception as mail_err:
+                print(f"⚠️ [ADMIN] Shipping notification email failed: {mail_err}")
+
+        # If cancelling or refunding, restore inventory stock if it was deducted
+        if new_status in ['cancelled', 'refunded'] and old_status not in ['cancelled', 'refunded']:
+            for oi in order.items:
+                if oi.product:
+                    restore_product_stock(oi.product, oi.quantity, oi.size)
+
+        db.session.commit()
+        flash(f'Order #{order.order_number} status updated to {new_status.upper()}.', 'success')
+    else:
+        flash(f'Invalid status: {new_status}', 'error')
+
     return redirect(url_for('admin.order_detail', order_id=order_id))
 
 
@@ -684,7 +712,8 @@ def settings():
         keys = ['announcement_text', 'announcement_active', 'store_name', 'store_email',
                 'store_phone', 'store_address', 'social_instagram', 'social_facebook',
                 'social_twitter', 'social_youtube', 'upi_id', 'razorpay_key_id',
-                'shiprocket_pickup_pincode', 'shiprocket_pickup_location']
+                'shiprocket_pickup_pincode', 'shiprocket_pickup_location',
+                'free_shipping_threshold', 'flat_shipping_rate']
         
         for key in keys:
             value = request.form.get(key, '')

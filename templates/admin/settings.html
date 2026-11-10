@@ -93,6 +93,26 @@
     </div>
 
     <div class="card mb-6">
+      <div class="card-header"><h3 class="card-title">📦 Shipping Rules</h3></div>
+      <div class="card-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Free Shipping Threshold (₹)</label>
+            <input type="number" step="1" name="free_shipping_threshold" class="form-control"
+                   value="{{ settings.get('free_shipping_threshold', '999') }}" placeholder="999"/>
+            <div class="form-hint" style="font-size:11px;color:#64748b;margin-top:4px;">Orders with subtotal at or above this amount get 100% Free Shipping.</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Flat Shipping Rate (₹)</label>
+            <input type="number" step="1" name="flat_shipping_rate" class="form-control"
+                   value="{{ settings.get('flat_shipping_rate', '99') }}" placeholder="99"/>
+            <div class="form-hint" style="font-size:11px;color:#64748b;margin-top:4px;">Standard delivery charge applied when subtotal is below free threshold.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-6">
       <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
         <h3 class="card-title">🚀 Shiprocket Shipping Integration</h3>
         <span class="badge" style="background:#1e293b;color:#38bdf8;border:1px solid #38bdf844;padding:4px 10px;font-size:11px;">

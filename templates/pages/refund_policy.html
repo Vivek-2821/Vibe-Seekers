@@ -1,28 +1,95 @@
 {% extends 'base.html' %}
+{% block title %}Refund & Cancellation Policy – Vibe Seekers{% endblock %}
 {% block content %}
-<section style="padding: 80px 24px; max-width: 780px; margin: 0 auto;">
-  <h1 style="font-size: 42px; font-weight: 800; color: #e2e8f0; margin-bottom: 8px;">Refund & Return Policy</h1>
-  <p style="color: #64748b; font-size: 14px; margin-bottom: 40px;">Last updated: November 2024</p>
+<div class="page-hero">
+  <div class="container">
+    <h1>Refund & Cancellation Policy</h1>
+    <p class="breadcrumbs"><a href="{{ url_for('main.index') }}">Home</a> / Refund Policy</p>
+  </div>
+</div>
 
-  <div style="display: flex; flex-direction: column; gap: 32px; color: #94a3b8; line-height: 1.8; font-size: 15px;">
-    {% set sections = [
-      ('✅ Eligible Items for Return', 'We accept returns for items that are unworn, unwashed, with original tags attached, and in original packaging. Items must be returned within <strong>7 days</strong> of the delivery date.'),
-      ('❌ Non-Returnable Items', 'Sale items, undergarments, and items marked as "Final Sale" are not eligible for return or exchange. Customised or personalised items cannot be returned.'),
-      ('🔄 Exchange Process', 'To request an exchange, contact us at our email or support chat with your order number and the reason. We will provide a return shipping label for defective/damaged items. For size exchanges, shipping costs are borne by the customer.'),
-      ('💸 Refund Timeline', 'Once we receive and inspect the returned item, we will process your refund within <strong>5–7 business days</strong>. Refunds are issued to the original payment method. COD orders are refunded to your bank account via NEFT (please share bank details when contacting us).'),
-      ('📦 How to Initiate a Return', 'Step 1: Contact us at hello@vibeseekers.com with order number and photos.<br/>Step 2: We will confirm eligibility and share return instructions.<br/>Step 3: Ship the item back securely.<br/>Step 4: Receive your refund or exchange within 5–7 days.'),
-      ('⚠️ Damaged or Wrong Items', 'If you receive a damaged, defective, or incorrect item, please contact us within <strong>48 hours</strong> of delivery. We will arrange a free replacement or full refund immediately.')
-    ] %}
-    {% for heading, body in sections %}
-    <div style="background: rgba(17,17,24,0.6); border: 1px solid #2a2a3a; border-radius: 14px; padding: 28px;">
-      <h2 style="font-size: 18px; font-weight: 700; color: #e2e8f0; margin-bottom: 12px;">{{ heading }}</h2>
-      <p>{{ body | safe }}</p>
+<div class="container" style="padding-bottom: 80px; max-width: 860px;">
+  <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 36px 32px; margin-bottom: 32px;">
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;">
+      Effective Date: <strong>1st January 2024</strong> | Last Updated: <strong>November 2024</strong>
+    </p>
+    <p style="font-size: 0.95rem; line-height: 1.7; color: var(--text);">
+      At <strong>Vibe Seekers</strong>, we stand behind the premium craftsmanship of our streetwear. If you are not completely satisfied with your order, we offer a straightforward, hassle-free <strong>7-Day Return and Exchange Policy</strong>.
+    </p>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 24px; color: var(--text-muted); line-height: 1.8; font-size: 0.95rem;">
+    <!-- Order Cancellation -->
+    <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 12px;">1. Order Cancellation Policy</h2>
+      <ul style="padding-left: 20px; list-style-type: disc;">
+        <li><strong style="color:var(--text)">Before Dispatch:</strong> You can cancel your order at any time before it has been marked as <em>Packed</em> or <em>Shipped</em>. Contact our support via WhatsApp or email with your Order ID. For prepaid orders cancelled prior to dispatch, a 100% full refund is issued instantly.</li>
+        <li><strong style="color:var(--text)">After Dispatch:</strong> Once handed over to our courier partner and an AWB has been generated, orders cannot be cancelled mid-transit. You may instead receive the parcel and initiate a standard 7-day return.</li>
+      </ul>
     </div>
-    {% endfor %}
-  </div>
 
-  <div style="margin-top:40px; padding: 28px; background: rgba(124,58,237,0.08); border:1px solid rgba(124,58,237,0.2); border-radius:14px;">
-    <p style="color:#94a3b8;">Questions about returns? <a href="{{ url_for('main.contact') }}" style="color:#a855f7; text-decoration:none; font-weight:600;">Contact our support team →</a></p>
+    <!-- 7-Day Return Window -->
+    <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 12px;">2. 7-Day Return & Exchange Window</h2>
+      <p style="margin-bottom: 10px;">
+        You can request a return or size exchange within <strong>7 days</strong> from the date of confirmed delivery.
+      </p>
+      <h3 style="font-size: 1rem; font-weight: 600; color: #22c55e; margin: 16px 0 8px;">✓ Eligible Conditions for Return:</h3>
+      <ul style="padding-left: 20px; list-style-type: disc;">
+        <li>Garments must be entirely unworn, unwashed, unaltered, and free of perfumes, stains, or deodorant marks.</li>
+        <li>All original brand tags, labels, and hygiene strips must remain attached in their original condition.</li>
+        <li>The item must be returned inside its original packaging/polybag.</li>
+      </ul>
+      <h3 style="font-size: 1rem; font-weight: 600; color: var(--error); margin: 16px 0 8px;">✕ Non-Returnable Items:</h3>
+      <ul style="padding-left: 20px; list-style-type: disc;">
+        <li>Clearance / Flash Sale items marked explicitly as "Final Sale".</li>
+        <li>Undergarments, socks, or accessories due to hygiene protocols.</li>
+        <li>Items returned without original tags, damaged, or laundered.</li>
+      </ul>
+    </div>
+
+    <!-- Defective or Wrong Item -->
+    <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 12px;">3. Damaged, Defective or Incorrect Items</h2>
+      <p>
+        In the rare event that you receive a defective garment, incorrect size, or print error, please report it within <strong>48 hours</strong> of delivery by sending photos of the item and courier packaging to <strong style="color:var(--text)">{{ site_settings.get('store_email', 'hello@vibeseekers.in') }}</strong> or WhatsApp <strong>{{ site_settings.get('store_phone', '+91 98604 98749') }}</strong>. We will arrange a free reverse pickup and immediate priority replacement at zero additional cost to you.
+      </p>
+    </div>
+
+    <!-- Refund Mode & Timelines -->
+    <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 12px;">4. Refund Mode & Timeline</h2>
+      <p style="margin-bottom: 12px;">
+        Once your returned parcel reaches our fulfillment warehouse and passes quality inspection (usually within 24–48 hours of receipt):
+      </p>
+      <ul style="padding-left: 20px; list-style-type: disc;">
+        <li><strong style="color:var(--text)">Prepaid Orders (Razorpay):</strong> Refunds are processed directly back to the original source payment method (UPI, credit/debit card, net banking). The funds reflect in your account within <strong>5 to 7 business days</strong> as per banking network standards.</li>
+        <li><strong style="color:var(--text)">Cash on Delivery (COD) Orders:</strong> Refunds are credited via direct NEFT / IMPS bank transfer or secure UPI transfer. Our customer support will contact you to collect your beneficiary account details.</li>
+      </ul>
+    </div>
+
+    <!-- How to Initiate a Return -->
+    <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 12px;">5. How to Initiate a Return or Exchange</h2>
+      <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 12px;">
+        <div style="display: flex; gap: 12px; align-items: flex-start;">
+          <span style="background: var(--accent); color: #fff; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0;">1</span>
+          <div>Email us at <strong style="color:var(--text)">{{ site_settings.get('store_email', 'hello@vibeseekers.in') }}</strong> with subject line <em>"Return Request - [Your Order ID]"</em> or WhatsApp <strong>{{ site_settings.get('store_phone', '+91 98604 98749') }}</strong>.</div>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: flex-start;">
+          <span style="background: var(--accent); color: #fff; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0;">2</span>
+          <div>State the reason for return/exchange and mention whether you want a different size or a refund.</div>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: flex-start;">
+          <span style="background: var(--accent); color: #fff; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0;">3</span>
+          <div>Our team will review your request within 24 hours and schedule a doorstep reverse courier pickup.</div>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: flex-start;">
+          <span style="background: var(--accent); color: #fff; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0;">4</span>
+          <div>Hand over the packaged garment with tags to the pickup executive. Your refund or replacement is dispatched immediately upon warehouse arrival.</div>
+        </div>
+      </div>
+    </div>
   </div>
-</section>
+</div>
 {% endblock %}

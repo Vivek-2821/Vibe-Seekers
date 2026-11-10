@@ -1,10 +1,15 @@
 """
 Vibe Seekers – Reusable Email Delivery Service supporting:
-1. Resend API (POST https://api.resend.com/emails) with proper "Name <email@domain.com>" formatting
+1. Resend API (POST https://api.resend.com/emails)
 2. Brevo HTTP API (POST https://api.brevo.com/v3/smtp/email)
+3. Standard SMTP (smtplib with TLS/SSL)
 """
 import os
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 import requests
+from app.utils import get_site_url
 
 
 def clean_env_val(key, default=""):
@@ -97,8 +102,7 @@ def send_email(to_email, subject, html):
 
     # 2. Try Brevo HTTP API if BREVO_API_KEY is configured
     if brevo_api_key:
-        # Extract clean plain email address if formatted with <...>
-        clean_email = from_email or 'hello@vibeseekers.com'
+        clean_email = from_email or 'hello@vibeseekers.in'
         if '<' in clean_email and '>' in clean_email:
             clean_email = clean_email.split('<')[1].split('>')[0].strip()
 
@@ -124,13 +128,44 @@ def send_email(to_email, subject, html):
                 timeout=10
             )
             print(f"📧 [BREVO EMAIL STATUS]: {res.status_code} {res.text}")
-            return res.status_code in (200, 201, 202)
+            if res.status_code in (200, 201, 202):
+                return True
         except Exception as e:
             print(f"❌ [BREVO NETWORK ERROR]: {e}")
-            return False
 
-    if not resend_api_key and not brevo_api_key:
-        print("❌ [EMAIL CONFIG ERROR] Neither RESEND_API_KEY nor BREVO_API_KEY is configured in environment.")
+    # 3. Try Standard SMTP if MAIL_SERVER and MAIL_USERNAME are configured
+    mail_server = clean_env_val('MAIL_SERVER')
+    mail_username = clean_env_val('MAIL_USERNAME')
+    mail_password = clean_env_val('MAIL_PASSWORD')
+    if mail_server and mail_username and mail_password:
+        try:
+            mail_port = int(clean_env_val('MAIL_PORT', '587'))
+            use_tls = clean_env_val('MAIL_USE_TLS', 'true').lower() in ('1', 'true', 'yes')
+            
+            sender_addr = from_email or mail_username
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = subject
+            msg['From'] = f"{from_name} <{sender_addr}>" if '<' not in sender_addr else sender_addr
+            msg['To'] = to_email.strip()
+            msg.attach(MIMEText(html, 'html'))
+
+            if mail_port == 465:
+                server = smtplib.SMTP_SSL(mail_server, mail_port, timeout=10)
+            else:
+                server = smtplib.SMTP(mail_server, mail_port, timeout=10)
+                if use_tls:
+                    server.starttls()
+
+            server.login(mail_username, mail_password)
+            server.sendmail(sender_addr, [to_email.strip()], msg.as_string())
+            server.quit()
+            print(f"📧 [SMTP EMAIL SUCCESS] Sent to {to_email}")
+            return True
+        except Exception as e:
+            print(f"❌ [SMTP EMAIL ERROR]: {e}")
+
+    if not resend_api_key and not brevo_api_key and not (mail_server and mail_username):
+        print("ℹ️ [EMAIL NOTICE] No email provider configured (RESEND_API_KEY, BREVO_API_KEY, or MAIL_SERVER).")
         return False
 
     return False
@@ -206,7 +241,7 @@ def send_welcome_newsletter_email(recipient_email):
           <div style="font-size:12px;color:#cbd5e1;text-transform:uppercase;margin-bottom:6px;">Use code at checkout for 10% off:</div>
           <div class="coupon-code">VIBE10</div>
         </div>
-        <a href="https://vibeseekers.com/shop/all-products" class="btn">Explore Collections</a>
+        <a href="{get_site_url()}/shop" class="btn">Explore Collections</a>
         <div class="footer">&copy; Vibe Seekers India &bull; Premium Streetwear<br>Unsubscribe at any time.</div>
       </div>
     </body>
@@ -299,4 +334,85 @@ def send_order_confirmation_email(order):
     </html>
     """
     subject = f"Order Confirmed: #{order.order_number} – Vibe Seekers"
+    return send_email(recipient_email, subject, html_content)
+
+
+def send_admin_new_order_email(order):
+    """Sends a new-order notification to the store administrator."""
+    admin_email = clean_env_val('ADMIN_EMAIL') or clean_env_val('STORE_EMAIL')
+    if not admin_email:
+        return False
+
+    site_url = get_site_url()
+    items_summary = ""
+    for item in order.items:
+        size_txt = f" (Size: {item.size})" if item.size else ""
+        items_summary += f"• {item.product_name}{size_txt} × {item.quantity} – ₹{item.price * item.quantity:,.0f}<br>"
+
+    pay_method = "Cash on Delivery (COD)" if order.payment_method == 'cod' else "Razorpay Online"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="font-family:-apple-system,sans-serif;background:#0d0d12;color:#ffffff;padding:24px;">
+      <div style="max-width:540px;margin:0 auto;background:#16161f;border:1px solid #2b2b3d;border-radius:12px;padding:28px;">
+        <h2 style="color:#DC1E1E;margin-top:0;">🚨 New Order Received!</h2>
+        <p style="font-size:16px;color:#f8fafc;">Order <strong>#{order.order_number}</strong></p>
+        <div style="background:#20202e;border-radius:8px;padding:16px;margin:16px 0;font-size:14px;line-height:1.7;">
+          <strong>Total Amount:</strong> ₹{order.total:,.0f}<br>
+          <strong>Payment:</strong> {pay_method} ({order.payment_status.upper()})<br>
+          <strong>Customer:</strong> {order.shipping_name} ({order.shipping_phone})<br>
+          <strong>Email:</strong> {order.shipping_email}<br>
+          <strong>Address:</strong> {order.shipping_address}, {order.shipping_city}, {order.shipping_state} - {order.shipping_pincode}
+        </div>
+        <h3 style="font-size:14px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;">Ordered Items:</h3>
+        <div style="font-size:14px;color:#e2e8f0;line-height:1.6;margin-bottom:20px;">
+          {items_summary}
+        </div>
+        <a href="{site_url}/admin/orders/{order.id}" style="display:inline-block;background:#DC1E1E;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:700;font-size:14px;">Open Order in Admin Panel →</a>
+      </div>
+    </body>
+    </html>
+    """
+    subject = f"🚨 New Order #{order.order_number} – ₹{order.total:,.0f} ({pay_method})"
+    return send_email(admin_email, subject, html_content)
+
+
+def send_order_shipped_email(order):
+    """Sends a shipping and tracking notification to the customer."""
+    recipient_email = order.shipping_email
+    if not recipient_email:
+        return False
+
+    site_url = get_site_url()
+    tracking_num = order.tracking_number or order.awb_code or "Tracking will update shortly"
+    courier = order.courier_name or "Courier Partner"
+    tracking_link = order.tracking_url or f"{site_url}/track-order?order_number={order.order_number}"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="font-family:-apple-system,sans-serif;background:#0d0d12;color:#ffffff;padding:24px;">
+      <div style="max-width:540px;margin:0 auto;background:#16161f;border:1px solid #2b2b3d;border-radius:12px;padding:28px;text-align:center;">
+        <div style="font-size:36px;margin-bottom:12px;">🚚</div>
+        <h2 style="color:#ffffff;margin-top:0;">Your Order is on the Way!</h2>
+        <p style="color:#94a3b8;font-size:14px;line-height:1.6;">
+          Hey {order.shipping_name or 'there'}, exciting news! Your order <strong>#{order.order_number}</strong> has been handed over to our courier partner and is on its way to you.
+        </p>
+        <div style="background:#20202e;border-radius:8px;padding:18px;margin:24px 0;text-align:left;font-size:14px;line-height:1.8;">
+          <strong>Courier:</strong> {courier}<br>
+          <strong>Tracking Number / AWB:</strong> <code style="color:#fbbf24;font-size:15px;">{tracking_num}</code><br>
+          <strong>Delivering To:</strong> {order.shipping_address}, {order.shipping_city} – {order.shipping_pincode}
+        </div>
+        <a href="{tracking_link}" style="display:inline-block;background:#DC1E1E;color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:700;font-size:14px;margin-bottom:16px;">Track Your Shipment →</a>
+        <div style="font-size:12px;color:#64748b;margin-top:24px;border-top:1px solid #252535;padding-top:16px;">
+          Vibe Seekers India &bull; Premium Streetwear
+        </div>
+      </div>
+    </body>
+    </html>
+    """
+    subject = f"Your Vibe Seekers Order #{order.order_number} Has Shipped! 🚚"
     return send_email(recipient_email, subject, html_content)

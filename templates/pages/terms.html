@@ -1,30 +1,90 @@
 {% extends 'base.html' %}
+{% block title %}Terms & Conditions – Vibe Seekers{% endblock %}
 {% block content %}
-<section style="padding: 80px 24px; max-width: 780px; margin: 0 auto;">
-  <h1 style="font-size: 42px; font-weight: 800; color: #e2e8f0; margin-bottom: 8px;">Terms & Conditions</h1>
-  <p style="color: #64748b; font-size: 14px; margin-bottom: 40px;">Last updated: November 2024</p>
+<div class="page-hero">
+  <div class="container">
+    <h1>Terms & Conditions</h1>
+    <p class="breadcrumbs"><a href="{{ url_for('main.index') }}">Home</a> / Terms & Conditions</p>
+  </div>
+</div>
 
-  <div style="display: flex; flex-direction: column; gap: 24px; color: #94a3b8; line-height: 1.8; font-size: 15px;">
-    {% set sections = [
-      ('Acceptance of Terms', 'By accessing and using the Vibe Seekers website and placing orders, you agree to be bound by these Terms and Conditions. If you do not agree, please do not use our website.'),
-      ('Account Registration', 'You must be 18 years or older to create an account. You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account.'),
-      ('Product Information', 'We strive to display accurate product images and descriptions. However, colours may vary slightly due to monitor settings. We reserve the right to modify product descriptions, prices, and availability without notice.'),
-      ('Ordering & Payment', 'All prices are in Indian Rupees (₹) and inclusive of applicable taxes. Orders are subject to availability. We reserve the right to cancel any order at our discretion, in which case a full refund will be issued.'),
-      ('Intellectual Property', 'All content on this website, including designs, logos, text, and images, is the property of Vibe Seekers and is protected by copyright laws. Reproduction without permission is prohibited.'),
-      ('Limitation of Liability', 'Vibe Seekers shall not be liable for any indirect, incidental, or consequential damages arising from the use of our website or products. Our maximum liability is limited to the value of the order placed.'),
-      ('Governing Law', 'These terms are governed by the laws of India. Any disputes shall be subject to the exclusive jurisdiction of courts in India.'),
-      ('Changes to Terms', 'We reserve the right to modify these terms at any time. Continued use of the website after changes constitutes acceptance of the new terms.')
-    ] %}
-    {% for heading, body in sections %}
-    <div style="background: rgba(17,17,24,0.6); border: 1px solid #2a2a3a; border-radius: 14px; padding: 28px;">
-      <h2 style="font-size: 18px; font-weight: 700; color: #e2e8f0; margin-bottom: 12px;">{{ loop.index }}. {{ heading }}</h2>
-      <p>{{ body | safe }}</p>
+<div class="container" style="padding-bottom: 80px; max-width: 860px;">
+  <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 36px 32px; margin-bottom: 32px;">
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;">
+      Effective Date: <strong>1st January 2024</strong> | Last Updated: <strong>November 2024</strong>
+    </p>
+    <p style="font-size: 0.95rem; line-height: 1.7; color: var(--text);">
+      These Terms and Conditions ("Terms") govern your use of the website located at <a href="https://vibeseekers.in" style="color:var(--accent);font-weight:600;">https://vibeseekers.in</a> and any purchase made from <strong>Vibe Seekers</strong> (operating as <em>[YOUR REGISTERED BUSINESS NAME]</em>). By accessing our website, creating an account, or purchasing our products, you agree to be bound by these Terms and our Privacy Policy.
+    </p>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 24px; color: var(--text-muted); line-height: 1.8; font-size: 0.95rem;">
+    <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 12px;">1. User Eligibility</h2>
+      <p>
+        By using this platform, you represent that you are at least 18 years of age and legally competent to enter into a binding contract under the Indian Contract Act, 1872. If you are under 18 years old, you may only use our services under the supervision and consent of a parent or legal guardian.
+      </p>
     </div>
-    {% endfor %}
-  </div>
 
-  <div style="margin-top:40px; padding:28px; background:rgba(124,58,237,0.08); border:1px solid rgba(124,58,237,0.2); border-radius:14px;">
-    <p style="color:#94a3b8;">Questions? <a href="{{ url_for('main.contact') }}" style="color:#a855f7;text-decoration:none;font-weight:600;">Contact us →</a></p>
+    <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 12px;">2. Account Responsibilities</h2>
+      <p>
+        When registering an account, you must provide accurate, current, and complete details. You are responsible for maintaining the confidentiality of your login credentials and for all transactions conducted under your account. Notify us immediately if you suspect unauthorized access.
+      </p>
+    </div>
+
+    <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 12px;">3. Pricing, Products & Taxes</h2>
+      <ul style="padding-left: 20px; list-style-type: disc;">
+        <li>All prices displayed on the store are denominated in <strong>Indian Rupees (INR / ₹)</strong> and are inclusive of all applicable Goods and Services Tax (GST).</li>
+        <li>We make every reasonable effort to display garment colors, textures, and sizing accurately. However, slight variations may arise depending on your screen monitor calibration.</li>
+        <li>We reserve the right to revise product specifications, prices, and stock availability without prior notice.</li>
+      </ul>
+    </div>
+
+    <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 12px;">4. Order Acceptance & Payments</h2>
+      <p style="margin-bottom: 10px;">
+        Order placement constitutes an offer to purchase. An order is confirmed once payment has been verified (or COD selected) and an official Order Confirmation with an Order ID is generated.
+      </p>
+      <ul style="padding-left: 20px; list-style-type: disc;">
+        <li><strong style="color:var(--text)">Online Payments:</strong> Supported via <em>Razorpay</em> (UPI, Google Pay, PhonePe, Debit/Credit Cards, Net Banking, and digital wallets).</li>
+        <li><strong style="color:var(--text)">Cash on Delivery (COD):</strong> Available on eligible pincodes up to maximum order values of ₹5,000.</li>
+        <li>We reserve the right to decline or cancel any order suspected of fraudulent intent, bulk commercial reselling, or inventory unavailability. In any such cancellation, all prepaid amounts are refunded in full.</li>
+      </ul>
+    </div>
+
+    <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 12px;">5. Intellectual Property Rights</h2>
+      <p>
+        All artwork, graphics, typography, photography, trademarks, brand logos, code, and editorial content on this website are the proprietary property of <strong>Vibe Seekers</strong> and <em>[YOUR REGISTERED BUSINESS NAME]</em>, protected by Indian and international copyright and trademark laws. Any unauthorized commercial reproduction, redistribution, or modification is strictly prohibited.
+      </p>
+    </div>
+
+    <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 12px;">6. Limitation of Liability</h2>
+      <p>
+        To the fullest extent permissible by applicable law, Vibe Seekers, its founders, and affiliates shall not be liable for any indirect, incidental, punitive, or consequential damages resulting from the use or inability to use our website or products. Our total liability for any claim shall not exceed the actual transaction value paid by the customer for the specific order in dispute.
+      </p>
+    </div>
+
+    <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 12px;">7. Governing Law & Jurisdiction</h2>
+      <p>
+        These Terms shall be interpreted, governed, and construed strictly in accordance with the laws of <strong>India</strong>. Any legal dispute, claim, or controversy arising out of or relating to your use of this store shall be subject to the exclusive jurisdiction of the competent courts in India.
+      </p>
+    </div>
+
+    <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 12px;">8. Contact Information</h2>
+      <p>
+        If you have questions or concerns regarding our terms, please contact:<br>
+        <strong>[YOUR REGISTERED BUSINESS NAME]</strong><br>
+        <strong>Address:</strong> [YOUR REGISTERED BUSINESS ADDRESS]<br>
+        <strong>Email:</strong> {{ site_settings.get('store_email', 'hello@vibeseekers.in') }}<br>
+        <strong>Phone:</strong> {{ site_settings.get('store_phone', '+91 98604 98749') }}
+      </p>
+    </div>
   </div>
-</section>
+</div>
 {% endblock %}

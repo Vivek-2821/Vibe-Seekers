@@ -79,6 +79,12 @@ def slugify(text):
     return text
 
 
+def get_site_url():
+    """Returns the canonical public site URL, defaulting to https://vibeseekers.in."""
+    url = os.environ.get('SITE_URL', 'https://vibeseekers.in').strip().rstrip('/')
+    return url if url else 'https://vibeseekers.in'
+
+
 def generate_order_number():
     """Generate a unique order number."""
     ts = datetime.utcnow().strftime('%Y%m%d%H%M%S')
@@ -126,4 +132,37 @@ def restore_product_stock(product, quantity, size=None):
         if ps:
             ps.stock = int(ps.stock or 0) + quantity
     product.stock = int(product.stock or 0) + quantity
+
+
+# ─── Simple In-Memory Rate Limiter ───────────────────────────────────────────
+import time
+from collections import defaultdict
+
+class InMemoryRateLimiter:
+    def __init__(self):
+        self._requests = defaultdict(list)
+
+    def is_allowed(self, key: str, max_requests: int, window_seconds: int) -> bool:
+        now = time.time()
+        timestamps = self._requests[key]
+        cutoff = now - window_seconds
+        valid_ts = [t for t in timestamps if t > cutoff]
+        self._requests[key] = valid_ts
+        if len(valid_ts) >= max_requests:
+            return False
+        self._requests[key].append(now)
+        return True
+
+rate_limiter = InMemoryRateLimiter()
+
+def check_rate_limit(key_prefix: str, max_requests: int = 15, window_seconds: int = 300):
+    """
+    Checks rate limit based on client IP.
+    Returns True if allowed, False if exceeded.
+    """
+    from flask import request
+    forwarded = request.headers.get('X-Forwarded-For')
+    ip = forwarded.split(',')[0].strip() if forwarded else (request.remote_addr or '127.0.0.1')
+    key = f"{key_prefix}:{ip}"
+    return rate_limiter.is_allowed(key, max_requests, window_seconds)
 

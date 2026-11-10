@@ -311,7 +311,7 @@ def create_shiprocket_order(order, pickup_location=None):
     last_name = parts[1] if len(parts) > 1 else 'Customer'
 
     # Customer email & phone safely resolved
-    raw_email = order.shipping_email or (order.user.email if order.user else None) or 'customer@vibeseekers.com'
+    raw_email = order.shipping_email or (order.user.email if order.user else None) or 'customer@vibeseekers.in'
     customer_email = str(raw_email).strip()
 
     raw_phone = order.shipping_phone or (order.user.phone if order.user else None) or '9876543210'

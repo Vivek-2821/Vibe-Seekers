@@ -1,33 +1,80 @@
 {% extends 'base.html' %}
+{% block title %}Shipping Policy – Vibe Seekers{% endblock %}
 {% block content %}
-<section style="padding: 80px 24px; max-width: 780px; margin: 0 auto;">
-  <h1 style="font-size: 42px; font-weight: 800; color: #e2e8f0; margin-bottom: 8px;">Shipping Policy</h1>
-  <p style="color: #64748b; font-size: 14px; margin-bottom: 40px;">Last updated: November 2024</p>
+<div class="page-hero">
+  <div class="container">
+    <h1>Shipping Policy</h1>
+    <p class="breadcrumbs"><a href="{{ url_for('main.index') }}">Home</a> / Shipping Policy</p>
+  </div>
+</div>
 
-  <div style="display: flex; flex-direction: column; gap: 24px; color: #94a3b8; line-height: 1.8; font-size: 15px;">
-    <div style="background: linear-gradient(135deg, rgba(124,58,237,0.15), rgba(168,85,247,0.08)); border: 1px solid rgba(124,58,237,0.3); border-radius: 14px; padding: 28px;">
-      <h2 style="color:#a855f7; font-size:20px; font-weight:700; margin-bottom:8px;">🚚 FREE Shipping</h2>
-      <p>We offer <strong style="color:#e2e8f0;">FREE shipping on all orders above ₹999</strong> across India. No coupon needed — it's automatic at checkout.</p>
+<div class="container" style="padding-bottom: 80px; max-width: 860px;">
+  <!-- Free Shipping Banner -->
+  <div style="background: rgba(34,197,94,0.1); border: 1.5px solid rgba(34,197,94,0.4); border-radius: var(--radius-xl); padding: 24px 28px; margin-bottom: 32px; display: flex; align-items: center; gap: 16px;">
+    <div style="font-size: 32px;">🚚</div>
+    <div>
+      <h3 style="color: #22c55e; font-size: 1.15rem; font-weight: 700; margin-bottom: 4px;">FREE Shipping Pan-India on Orders Above ₹999</h3>
+      <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">
+        All orders of subtotal ₹999 or more automatically qualify for 100% Free Standard Shipping across India. No coupon code needed!
+      </p>
     </div>
-
-    {% set sections = [
-      ('📦 Processing Time', 'Orders are processed within <strong>1–2 business days</strong> after payment confirmation. Orders placed on weekends or public holidays will be processed the next business day.'),
-      ('📅 Delivery Timeline', '<strong>Standard Delivery:</strong> 4–7 business days<br/><strong>Express Delivery:</strong> 2–3 business days (where available)<br/>Delivery times may vary during sale periods, festivals, or due to courier delays.'),
-      ('💰 Shipping Charges', 'Orders below ₹999: ₹79 flat shipping fee<br/>Orders above ₹999: FREE<br/>Express delivery charges are calculated at checkout based on your location.'),
-      ('🗺️ Delivery Locations', 'We ship to all serviceable pin codes across India through our trusted courier partners. Enter your pin code at checkout to confirm serviceability.'),
-      ('🔍 Order Tracking', 'Once shipped, you will receive a tracking number via email or SMS. Use it to track your order on the courier website. You can also view your order status in your account dashboard.'),
-      ('⚡ Cash on Delivery', 'COD is available for orders up to ₹5,000 on serviceable pin codes. Please keep exact change ready at the time of delivery.')
-    ] %}
-    {% for heading, body in sections %}
-    <div style="background: rgba(17,17,24,0.6); border: 1px solid #2a2a3a; border-radius: 14px; padding: 28px;">
-      <h2 style="font-size: 18px; font-weight: 700; color: #e2e8f0; margin-bottom: 12px;">{{ heading }}</h2>
-      <p>{{ body | safe }}</p>
-    </div>
-    {% endfor %}
   </div>
 
-  <div style="margin-top:40px; padding:28px; background:rgba(124,58,237,0.08); border:1px solid rgba(124,58,237,0.2); border-radius:14px;">
-    <p style="color:#94a3b8;">For shipping enquiries, <a href="{{ url_for('main.contact') }}" style="color:#a855f7;text-decoration:none;font-weight:600;">contact us →</a></p>
+  <div style="display: flex; flex-direction: column; gap: 24px; color: var(--text-muted); line-height: 1.8; font-size: 0.95rem;">
+    <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 12px;">1. Shipping Rates & Charges</h2>
+      <ul style="padding-left: 20px; list-style-type: disc;">
+        <li><strong style="color:var(--text)">Orders Above ₹999:</strong> <strong>FREE Standard Delivery</strong> across all serviceable Indian pincodes.</li>
+        <li><strong style="color:var(--text)">Orders Below ₹999:</strong> A nominal flat shipping fee of <strong>₹99</strong> applies to cover insured logistics.</li>
+        <li>Shipping charges are calculated and displayed transparently in your Cart and on the Checkout summary before payment.</li>
+      </ul>
+    </div>
+
+    <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 12px;">2. Order Processing & Dispatch</h2>
+      <p style="margin-bottom: 10px;">
+        Every order is carefully inspected, folded, and custom-packed at our fulfillment warehouse:
+      </p>
+      <ul style="padding-left: 20px; list-style-type: disc;">
+        <li><strong style="color:var(--text)">Processing Time:</strong> <strong>24 to 48 business hours</strong> from the time payment is verified (or COD order placed).</li>
+        <li>Orders placed on Sundays or national public holidays will be dispatched on the next working business day.</li>
+        <li>You will receive an automated dispatch email with your tracking details the moment your package is handed over to the courier.</li>
+      </ul>
+    </div>
+
+    <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 12px;">3. Estimated Delivery Times</h2>
+      <p style="margin-bottom: 10px;">We partner with premium express couriers to deliver your streetwear as swiftly as possible:</p>
+      <ul style="padding-left: 20px; list-style-type: disc;">
+        <li><strong style="color:var(--text)">Metro Cities (Mumbai, Delhi NCR, Bangalore, Pune, Hyderabad, Chennai, Kolkata):</strong> <strong>2 to 4 business days</strong> post-dispatch.</li>
+        <li><strong style="color:var(--text)">Rest of India (Tier 2 & 3 Cities, Regional Towns):</strong> <strong>4 to 7 business days</strong> post-dispatch.</li>
+        <li><strong style="color:var(--text)">North-East, J&K, Island Territories:</strong> <strong>6 to 9 business days</strong> depending on air connectivity.</li>
+      </ul>
+      <p style="font-size: 0.85rem; color: var(--text-dim); margin-top: 8px;">
+        <em>Note: Occasional transit delays may occur during extreme weather conditions, election periods, or peak festive sale rushes. We appreciate your patience.</em>
+      </p>
+    </div>
+
+    <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 12px;">4. Order Tracking</h2>
+      <p>
+        As soon as your package ships, you will receive an email containing your <strong>AWB / Tracking Number</strong> and direct tracking URL. You can also live-track your parcel at any time through our <a href="{{ url_for('main.track_order') }}" style="color:var(--accent);font-weight:600;">Track Order Page</a> or directly in <a href="{{ url_for('user.orders') }}" style="color:var(--accent);font-weight:600;">My Orders</a>.
+      </p>
+    </div>
+
+    <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 12px;">5. Courier Partners</h2>
+      <p>
+        Our shipments are fulfilled through India's premier logistics aggregators and courier networks, including <strong>Delhivery, Bluedart, DTDC, Shadowfax, Xpressbees, and Ekart</strong>.
+      </p>
+    </div>
+
+    <div style="background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-xl); padding: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 12px;">6. Damaged / Tampered Parcels</h2>
+      <p>
+        If the outer courier polybag appears visibly tampered with, damaged, or unsealed upon delivery, <strong>please do not accept the package</strong>. Request the delivery agent to mark it as rejected due to outer box damage and contact us immediately at <strong style="color:var(--text)">{{ site_settings.get('store_email', 'hello@vibeseekers.in') }}</strong> so we can dispatch an expedited replacement.
+      </p>
+    </div>
   </div>
-</section>
+</div>
 {% endblock %}

@@ -63,11 +63,11 @@
     </p>
     <p style="color:var(--text-dim);font-size:.85rem">
       {% if order.payment_method == 'cod' %}
-        You'll pay <strong style="color:var(--text)">₹{{ '%.0f'|format(order.total) }}</strong> when your order arrives. 
+        Payment method: <strong style="color:var(--text)">Cash on Delivery</strong>. You'll pay <strong style="color:var(--accent)">₹{{ '%.0f'|format(order.total) }}</strong> upon arrival.
       {% else %}
-        Payment confirmed. 
+        Payment method: <strong style="color:var(--text)">Online Payment (Razorpay)</strong>. Payment status: <strong style="color:#22c55e">Paid</strong>.
       {% endif %}
-      We'll notify you once it ships.
+      We'll notify you via email once your order ships.
     </p>
   </div>
 
@@ -101,26 +101,56 @@
     </div>
   </div>
 
-  <!-- Order Summary -->
+  <!-- Delivery Address & Shipping Details -->
+  <div style="background:var(--bg-card);border:1.5px solid var(--border);border-radius:var(--radius-xl);padding:24px 28px;margin-bottom:24px">
+    <h3 style="font-family:var(--font-heading);font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text-dim);margin-bottom:14px">📍 Delivery Address</h3>
+    <div style="font-size:.9rem;line-height:1.6;color:var(--text)">
+      <strong style="font-size:.95rem;color:var(--text)">{{ order.shipping_name }}</strong><br>
+      <span style="color:var(--text-muted)">{{ order.shipping_address }}</span><br>
+      <span style="color:var(--text-muted)">{{ order.shipping_city }}, {{ order.shipping_state }} – <strong>{{ order.shipping_pincode }}</strong></span><br>
+      <span style="color:var(--text-dim);font-size:.82rem">Phone: {{ order.shipping_phone }} {% if order.shipping_email %}· Email: {{ order.shipping_email }}{% endif %}</span>
+    </div>
+  </div>
+
+  <!-- Order Items & Pricing Summary -->
   <div style="background:var(--bg-card);border:1.5px solid var(--border);border-radius:var(--radius-xl);padding:28px;margin-bottom:24px">
     <h3 style="font-family:var(--font-heading);font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text-dim);margin-bottom:20px">Order Details</h3>
     {% for item in order.items %}
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:.88rem">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);font-size:.88rem">
       <div>
-        <span style="color:var(--text)">{{ item.product_name }}</span>
-        {% if item.size %}<span style="color:var(--text-dim);margin-left:8px;font-size:.78rem">({{ item.size }})</span>{% endif %}
-        <span style="color:var(--text-dim);margin-left:4px">× {{ item.quantity }}</span>
+        <span style="color:var(--text);font-weight:600">{{ item.product_name }}</span>
+        {% if item.size %}<span style="color:var(--accent);margin-left:8px;font-size:.8rem;font-weight:700">Size {{ item.size }}</span>{% endif %}
+        <span style="color:var(--text-dim);margin-left:8px">Qty: {{ item.quantity }}</span>
       </div>
       <span style="font-weight:600">₹{{ '%.0f'|format(item.price * item.quantity) }}</span>
     </div>
     {% endfor %}
-    <div style="display:flex;justify-content:space-between;padding-top:16px;font-weight:700;font-size:1.05rem">
-      <span>Total</span>
-      <span style="color:var(--accent)">₹{{ '%.0f'|format(order.total) }}</span>
+
+    <div style="padding-top:16px;display:flex;flex-direction:column;gap:8px;font-size:.88rem;color:var(--text-muted)">
+      <div style="display:flex;justify-content:space-between">
+        <span>Subtotal</span>
+        <span style="color:var(--text)">₹{{ '%.0f'|format(order.subtotal) }}</span>
+      </div>
+      {% if order.discount_amount and order.discount_amount > 0 %}
+      <div style="display:flex;justify-content:space-between;color:#22c55e">
+        <span>Discount{% if order.coupon_code %} ({{ order.coupon_code }}){% endif %}</span>
+        <span>−₹{{ '%.0f'|format(order.discount_amount) }}</span>
+      </div>
+      {% endif %}
+      <div style="display:flex;justify-content:space-between">
+        <span>Shipping</span>
+        <span>{% if order.shipping_cost == 0 %}<strong style="color:#22c55e">FREE</strong>{% else %}₹{{ '%.0f'|format(order.shipping_cost) }}{% endif %}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding-top:12px;border-top:1px solid var(--border);font-weight:700;font-size:1.1rem;color:var(--text)">
+        <span>Total Amount</span>
+        <span style="color:var(--accent)">₹{{ '%.0f'|format(order.total) }}</span>
+      </div>
     </div>
-    <div style="margin-top:12px;font-size:.78rem;color:var(--text-dim);display:flex;gap:16px;flex-wrap:wrap">
-      <span>Payment: <strong style="color:var(--text)">{{ 'Cash on Delivery' if order.payment_method == 'cod' else 'UPI' }}</strong></span>
-      <span>Date: <strong style="color:var(--text)">{{ order.created_at.strftime('%d %b %Y') if order.created_at else 'Today' }}</strong></span>
+
+    <div style="margin-top:16px;padding-top:12px;border-top:1px dashed var(--border);font-size:.8rem;color:var(--text-dim);display:flex;gap:20px;flex-wrap:wrap">
+      <span>Order ID: <strong style="color:var(--text)">{{ order.order_number }}</strong></span>
+      <span>Payment: <strong style="color:var(--text)">{{ 'Cash on Delivery (COD)' if order.payment_method == 'cod' else 'Online (Razorpay)' }}</strong></span>
+      <span>Date: <strong style="color:var(--text)">{{ order.created_at.strftime('%d %b %Y, %I:%M %p') if order.created_at else 'Today' }}</strong></span>
     </div>
   </div>
 

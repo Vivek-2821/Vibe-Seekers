@@ -1,11 +1,13 @@
 """
 Main public routes: homepage, static pages
 """
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, Response
 from app.models import Product, Category, Banner, SiteSetting, NewsletterSubscriber, ContactMessage, User, Review, Order
 from app.email import send_welcome_newsletter_email
+from app.utils import get_site_url
 from app import db, csrf
 from sqlalchemy import func
+from datetime import datetime
 
 main_bp = Blueprint('main', __name__)
 
@@ -249,3 +251,77 @@ def track_order():
                            order_number=order_number,
                            contact=contact,
                            title='Track Your Order – Vibe Seekers')
+
+
+# ── Health Check & SEO Endpoints ──────────────────────────────────────────────
+
+@main_bp.route('/health')
+def health():
+    """Health check route for monitoring services and Render keep-alive pings."""
+    db_ok = True
+    try:
+        db.session.execute(db.text('SELECT 1'))
+    except Exception:
+        db_ok = False
+        db.session.rollback()
+
+    status_code = 200 if db_ok else 503
+    return jsonify({
+        'status': 'healthy' if db_ok else 'degraded',
+        'database': 'connected' if db_ok else 'disconnected',
+        'timestamp': datetime.utcnow().isoformat()
+    }), status_code
+
+
+@main_bp.route('/robots.txt')
+def robots_txt():
+    """Generates robots.txt for search engines."""
+    site_url = get_site_url()
+    content = f"""User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /user/
+Disallow: /cart/
+Disallow: /auth/
+
+Sitemap: {site_url}/sitemap.xml
+"""
+    return Response(content, mimetype='text/plain')
+
+
+@main_bp.route('/sitemap.xml')
+def sitemap_xml():
+    """Generates an XML sitemap for SEO."""
+    site_url = get_site_url()
+    try:
+        products = Product.query.filter_by(is_active=True).all()
+        categories = Category.query.filter_by(is_active=True).all()
+    except Exception:
+        db.session.rollback()
+        products, categories = [], []
+
+    urls = [
+        f"{site_url}/",
+        f"{site_url}/shop",
+        f"{site_url}/about",
+        f"{site_url}/contact",
+        f"{site_url}/faq",
+        f"{site_url}/shipping-policy",
+        f"{site_url}/refund-policy",
+        f"{site_url}/privacy-policy",
+        f"{site_url}/terms",
+    ]
+    for c in categories:
+        urls.append(f"{site_url}/shop/category/{c.slug}")
+    for p in products:
+        urls.append(f"{site_url}/shop/product/{p.slug}")
+
+    xml_lines = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+    ]
+    for u in urls:
+        xml_lines.append(f"  <url><loc>{u}</loc><changefreq>weekly</changefreq></url>")
+    xml_lines.append('</urlset>')
+
+    return Response("\n".join(xml_lines), mimetype='application/xml')
